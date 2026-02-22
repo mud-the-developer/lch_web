@@ -1,13 +1,20 @@
 use askama::Template;
 use askama_axum::IntoResponse;
 use axum::{extract::Query, routing::get, Router};
-use csscolorparser::parse;
-use serde::Deserialize;
+use csscolorparser::{parse, Color};
+use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
 const DEFAULT_L: f64 = 0.72;
 const DEFAULT_C: f64 = 0.14;
 const DEFAULT_H: f64 = 220.0;
+const DEFAULT_FG: &str = "#0F1419";
+const DEFAULT_BG: &str = "#FFFFFF";
+const MAX_LIGHTNESS: f64 = 1.0;
+const MAX_CHROMA: f64 = 0.4;
+const MAX_HUE: f64 = 360.0;
+const LCH_C_SCALE: f64 = 150.0;
+const SLICE_CELL: usize = 24;
 
 #[tokio::main]
 async fn main() {
@@ -30,31 +37,103 @@ async fn main() {
 }
 
 async fn index(query: Option<Query<PreviewQuery>>) -> impl IntoResponse {
-    let params = query
-        .map(|Query(query)| ColorParams::from_query(query))
-        .unwrap_or_default();
+    let query = query.map(|Query(query)| query).unwrap_or_default();
+    build_index_template(query)
+}
+
+async fn preview(Query(query): Query<PreviewQuery>) -> impl IntoResponse {
+    build_preview_template(query)
+}
+
+fn build_index_template(query: PreviewQuery) -> IndexTemplate {
+    let params = ColorParams::from_query(&query);
+    let (fg_color, fg_value) = sanitize_user_color(query.fg.as_deref(), DEFAULT_FG);
+    let (bg_color, bg_value) = sanitize_user_color(query.bg.as_deref(), DEFAULT_BG);
+    let outputs = ColorOutputs::new(params);
+    let swatch_color = params.parsed_color();
+    let viz = VisualizationContext::new(params);
+    let contrast = ContrastChecker::new(swatch_color, &fg_value, &bg_value);
 
     IndexTemplate {
         params,
         presets: &PRESETS,
-        hex_value: params.hex_color(),
+        outputs,
+        fg_color,
+        bg_color,
+        contrast,
+        viz,
     }
 }
 
-async fn preview(Query(query): Query<PreviewQuery>) -> impl IntoResponse {
-    let params = ColorParams::from_query(query);
+fn build_preview_template(query: PreviewQuery) -> PreviewTemplate {
+    let params = ColorParams::from_query(&query);
+    let (fg_color, fg_value) = sanitize_user_color(query.fg.as_deref(), DEFAULT_FG);
+    let (bg_color, bg_value) = sanitize_user_color(query.bg.as_deref(), DEFAULT_BG);
+    let outputs = ColorOutputs::new(params);
+    let swatch_color = params.parsed_color();
+    let viz = VisualizationContext::new(params);
+    let contrast = ContrastChecker::new(swatch_color, &fg_value, &bg_value);
 
     PreviewTemplate {
         params,
-        hex_value: params.hex_color(),
+        outputs,
+        fg_color,
+        bg_color,
+        contrast,
+        viz,
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default)]
 struct PreviewQuery {
     l: Option<f64>,
     c: Option<f64>,
     h: Option<f64>,
+    mode: Option<String>,
+    fg: Option<String>,
+    bg: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ColorMode {
+    Oklch,
+    Lch,
+}
+
+impl ColorMode {
+    fn from_param(value: Option<&str>) -> Self {
+        match value {
+            Some(v) if v.eq_ignore_ascii_case("lch") => Self::Lch,
+            _ => Self::Oklch,
+        }
+    }
+
+    fn label(&self) -> &'static str {
+        match self {
+            Self::Oklch => "OKLCH",
+            Self::Lch => "Classic LCH",
+        }
+    }
+
+    fn param_value(&self) -> &'static str {
+        match self {
+            Self::Oklch => "oklch",
+            Self::Lch => "lch",
+        }
+    }
+
+    fn description(&self) -> &'static str {
+        match self {
+            Self::Oklch => "CSS Color 4 perceptually uniform OKLab flavor",
+            Self::Lch => "CIELAB-inspired approximation (limited chroma in this UI)",
+        }
+    }
+}
+
+impl Default for ColorMode {
+    fn default() -> Self {
+        Self::Oklch
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -62,38 +141,50 @@ struct ColorParams {
     l: f64,
     c: f64,
     h: f64,
+    mode: ColorMode,
 }
 
 impl ColorParams {
-    fn from_query(query: PreviewQuery) -> Self {
+    fn from_query(query: &PreviewQuery) -> Self {
         Self {
-            l: clamp(query.l, DEFAULT_L, 0.0, 1.0),
-            c: clamp(query.c, DEFAULT_C, 0.0, 0.4),
-            h: clamp(query.h, DEFAULT_H, 0.0, 360.0),
+            l: clamp(query.l, DEFAULT_L, 0.0, MAX_LIGHTNESS),
+            c: clamp(query.c, DEFAULT_C, 0.0, MAX_CHROMA),
+            h: clamp(query.h, DEFAULT_H, 0.0, MAX_HUE),
+            mode: ColorMode::from_param(query.mode.as_deref()),
         }
     }
 
-    pub fn css_color(&self) -> String {
-        format!("oklch({:.2} {:.3} {:.0})", self.l, self.c, self.h)
+    fn css_color(&self) -> String {
+        match self.mode {
+            ColorMode::Oklch => self.oklch_css(),
+            ColorMode::Lch => self.lch_css(),
+        }
     }
 
-    pub fn l_display(&self) -> String {
+    fn oklch_css(&self) -> String {
+        format!("oklch({:.3} {:.3} {:.0})", self.l, self.c, self.h)
+    }
+
+    fn lch_css(&self) -> String {
+        let l = (self.l * 100.0).clamp(0.0, 100.0);
+        let c = (self.c * LCH_C_SCALE).clamp(0.0, LCH_C_SCALE);
+        format!("lch({:.1}% {:.1} {:.0})", l, c, self.h)
+    }
+
+    fn l_display(&self) -> String {
         format!("{:.2}", self.l)
     }
 
-    pub fn c_display(&self) -> String {
+    fn c_display(&self) -> String {
         format!("{:.3}", self.c)
     }
 
-    pub fn h_display(&self) -> String {
+    fn h_display(&self) -> String {
         format!("{:.0}", self.h)
     }
 
-    fn hex_color(&self) -> Option<String> {
-        let css = self.css_color();
-        let color = parse(&css).ok()?;
-        let [r, g, b, _] = color.to_rgba8();
-        Some(format!("#{:02X}{:02X}{:02X}", r, g, b))
+    fn parsed_color(&self) -> Option<Color> {
+        parse(&self.css_color()).ok()
     }
 }
 
@@ -103,8 +194,173 @@ impl Default for ColorParams {
             l: DEFAULT_L,
             c: DEFAULT_C,
             h: DEFAULT_H,
+            mode: ColorMode::Oklch,
         }
     }
+}
+
+#[derive(Clone)]
+struct ColorOutputs {
+    active_css: String,
+    oklch_css: String,
+    lch_css: String,
+    hex: Option<String>,
+    rgb: Option<String>,
+    hsl: Option<String>,
+}
+
+impl ColorOutputs {
+    fn new(params: ColorParams) -> Self {
+        let oklch_css = params.oklch_css();
+        let lch_css = params.lch_css();
+        let active_css = match params.mode {
+            ColorMode::Oklch => oklch_css.clone(),
+            ColorMode::Lch => lch_css.clone(),
+        };
+        let parsed = parse(&active_css).ok();
+        let hex = parsed.as_ref().map(color_to_hex);
+        let rgb = parsed.as_ref().map(|color| rgb_string(color));
+        let hsl = parsed.as_ref().map(|color| hsl_string(color));
+
+        Self {
+            active_css,
+            oklch_css,
+            lch_css,
+            hex,
+            rgb,
+            hsl,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct ContrastChecker {
+    swatch_as_background: Option<ContrastSummary>,
+    swatch_as_foreground: Option<ContrastSummary>,
+}
+
+impl ContrastChecker {
+    fn new(swatch: Option<Color>, fg: &Color, bg: &Color) -> Self {
+        if let Some(swatch_color) = swatch {
+            let swatch_as_background = Some(ContrastSummary::new(fg, &swatch_color));
+            let swatch_as_foreground = Some(ContrastSummary::new(&swatch_color, bg));
+            Self {
+                swatch_as_background,
+                swatch_as_foreground,
+            }
+        } else {
+            Self {
+                swatch_as_background: None,
+                swatch_as_foreground: None,
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+struct ContrastSummary {
+    ratio: f64,
+    aa_normal: bool,
+    aa_large: bool,
+    aaa_normal: bool,
+    aaa_large: bool,
+}
+
+impl ContrastSummary {
+    fn new(foreground: &Color, background: &Color) -> Self {
+        let ratio = contrast_ratio(foreground, background);
+        Self {
+            ratio,
+            aa_normal: ratio >= 4.5,
+            aa_large: ratio >= 3.0,
+            aaa_normal: ratio >= 7.0,
+            aaa_large: ratio >= 4.5,
+        }
+    }
+
+    fn ratio_display(&self) -> String {
+        format!("{:.2}:1", self.ratio)
+    }
+}
+
+#[derive(Clone)]
+struct VisualizationContext {
+    lc_slice: SliceData,
+    ch_slice: SliceData,
+    points_json: String,
+}
+
+impl VisualizationContext {
+    fn new(params: ColorParams) -> Self {
+        let lc_slice = build_lc_slice(params);
+        let ch_slice = build_ch_slice(params);
+        let points_json = build_point_cloud(params.mode);
+        Self {
+            lc_slice,
+            ch_slice,
+            points_json,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct SliceData {
+    cells: Vec<SliceCell>,
+    horizontal_labels: Vec<String>,
+    width: usize,
+    height: usize,
+    cell: usize,
+    title: &'static str,
+    subtitle: String,
+}
+
+impl SliceData {
+    fn new(
+        colors: Vec<Vec<String>>,
+        horizontal_labels: Vec<String>,
+        cell: usize,
+        title: &'static str,
+        subtitle: String,
+    ) -> Self {
+        let columns = horizontal_labels.len().max(1);
+        let rows = colors.len().max(1);
+        let width = columns * cell;
+        let height = rows * cell;
+        let mut cells = Vec::new();
+        for (row_index, row) in colors.iter().enumerate() {
+            for (col_index, color) in row.iter().enumerate() {
+                cells.push(SliceCell {
+                    x: col_index * cell,
+                    y: row_index * cell,
+                    color: color.clone(),
+                });
+            }
+        }
+        Self {
+            cells,
+            horizontal_labels,
+            width,
+            height,
+            cell,
+            title,
+            subtitle,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct SliceCell {
+    x: usize,
+    y: usize,
+    color: String,
+}
+
+#[derive(Serialize)]
+struct VizPoint {
+    l: f64,
+    c: f64,
+    h: f64,
+    css: String,
 }
 
 #[derive(Clone, Copy)]
@@ -147,16 +403,197 @@ const PRESETS: [Preset; 4] = [
 struct IndexTemplate {
     params: ColorParams,
     presets: &'static [Preset],
-    hex_value: Option<String>,
+    outputs: ColorOutputs,
+    fg_color: String,
+    bg_color: String,
+    contrast: ContrastChecker,
+    viz: VisualizationContext,
 }
 
 #[derive(Template)]
 #[template(path = "preview.html")]
 struct PreviewTemplate {
     params: ColorParams,
-    hex_value: Option<String>,
+    outputs: ColorOutputs,
+    fg_color: String,
+    bg_color: String,
+    contrast: ContrastChecker,
+    viz: VisualizationContext,
 }
 
 fn clamp(value: Option<f64>, default: f64, min: f64, max: f64) -> f64 {
     value.unwrap_or(default).clamp(min, max)
+}
+
+fn sanitize_user_color(input: Option<&str>, fallback: &str) -> (String, Color) {
+    if let Some(value) = input {
+        if let Some(result) = parse_user_color(value) {
+            return result;
+        }
+    }
+    parse_user_color(fallback).expect("fallback color must parse")
+}
+
+fn parse_user_color(value: &str) -> Option<(String, Color)> {
+    let color = parse(value).ok()?;
+    let hex = color_to_hex(&color);
+    Some((hex, color))
+}
+
+fn color_to_hex(color: &Color) -> String {
+    let [r, g, b, _] = color.to_rgba8();
+    format!("#{:02X}{:02X}{:02X}", r, g, b)
+}
+
+fn rgb_string(color: &Color) -> String {
+    let [r, g, b, _] = color.to_rgba8();
+    format!("rgb({} {} {})", r, g, b)
+}
+
+fn hsl_string(color: &Color) -> String {
+    let (h, s, l) = rgb_to_hsl(color.r as f64, color.g as f64, color.b as f64);
+    format!("hsl({:.0} {:.0}% {:.0}%)", h, s * 100.0, l * 100.0)
+}
+
+fn rgb_to_hsl(r: f64, g: f64, b: f64) -> (f64, f64, f64) {
+    let max = r.max(g.max(b));
+    let min = r.min(g.min(b));
+    let mut h = 0.0;
+    let l = (max + min) / 2.0;
+    let delta = max - min;
+
+    let s = if delta == 0.0 {
+        0.0
+    } else {
+        if l > 0.5 {
+            delta / (2.0 - max - min)
+        } else {
+            delta / (max + min)
+        }
+    };
+
+    if delta != 0.0 {
+        h = if max == r {
+            ((g - b) / delta).rem_euclid(6.0)
+        } else if max == g {
+            ((b - r) / delta) + 2.0
+        } else {
+            ((r - g) / delta) + 4.0
+        } * 60.0;
+    }
+
+    if h < 0.0 {
+        h += 360.0;
+    }
+
+    (h, s, l)
+}
+
+fn contrast_ratio(foreground: &Color, background: &Color) -> f64 {
+    let l1 = relative_luminance(foreground);
+    let l2 = relative_luminance(background);
+    let (bright, dark) = if l1 > l2 { (l1, l2) } else { (l2, l1) };
+    (bright + 0.05) / (dark + 0.05)
+}
+
+fn relative_luminance(color: &Color) -> f64 {
+    fn expand(channel: f32) -> f64 {
+        let c = channel as f64;
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    }
+
+    0.2126 * expand(color.r) + 0.7152 * expand(color.g) + 0.0722 * expand(color.b)
+}
+
+fn build_lc_slice(params: ColorParams) -> SliceData {
+    let l_values = sample_range(0.05, 0.95, 9);
+    let c_values = sample_range(0.0, MAX_CHROMA, 9);
+    let mut colors = Vec::new();
+    for &l in l_values.iter().rev() {
+        let mut row = Vec::new();
+        for &c in &c_values {
+            let sample = ColorParams {
+                l,
+                c,
+                h: params.h,
+                mode: params.mode,
+            };
+            row.push(sample.css_color());
+        }
+        colors.push(row);
+    }
+
+    let horizontal_labels = c_values.iter().map(|v| format!("{:.2}", v)).collect();
+    SliceData::new(
+        colors,
+        horizontal_labels,
+        SLICE_CELL,
+        "L vs C slice",
+        format!("Hue {:.0}°", params.h),
+    )
+}
+
+fn build_ch_slice(params: ColorParams) -> SliceData {
+    let c_values = sample_range(0.0, MAX_CHROMA, 9);
+    let h_values: Vec<f64> = (0..=360).step_by(30).map(|h| h as f64).collect();
+    let mut colors = Vec::new();
+    for &c in c_values.iter().rev() {
+        let mut row = Vec::new();
+        for &h in &h_values {
+            let sample = ColorParams {
+                l: params.l,
+                c,
+                h,
+                mode: params.mode,
+            };
+            row.push(sample.css_color());
+        }
+        colors.push(row);
+    }
+
+    let horizontal_labels = h_values.iter().map(|v| format!("{:.0}", v)).collect();
+    SliceData::new(
+        colors,
+        horizontal_labels,
+        SLICE_CELL,
+        "C vs H slice",
+        format!("Lightness {:.2}", params.l),
+    )
+}
+
+fn build_point_cloud(mode: ColorMode) -> String {
+    let l_values = [0.12, 0.25, 0.4, 0.55, 0.7, 0.85];
+    let c_values = [0.02, 0.1, 0.18, 0.26, 0.34];
+    let mut points = Vec::new();
+    for &l in &l_values {
+        for &c in &c_values {
+            for h in (0..360).step_by(40) {
+                let params = ColorParams {
+                    l,
+                    c,
+                    h: h as f64,
+                    mode,
+                };
+                points.push(VizPoint {
+                    l,
+                    c,
+                    h: h as f64,
+                    css: params.css_color(),
+                });
+            }
+        }
+    }
+    serde_json::to_string(&points).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn sample_range(start: f64, end: f64, steps: usize) -> Vec<f64> {
+    if steps <= 1 {
+        return vec![end];
+    }
+    let step = (end - start) / (steps as f64 - 1.0);
+    (0..steps).map(|i| start + step * i as f64).collect()
 }

@@ -3,74 +3,64 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>OKLCH Lab</title>
+    <title>LCH Lab</title>
     <script src="https://unpkg.com/htmx.org@1.9.10" defer></script>
     <style>
         :root {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family: "Inter", "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             color: #0f1419;
-            background: #f6f8fa;
+            background: linear-gradient(180deg, #f6f8fb, #eef2ff);
         }
 
         body {
             margin: 0;
-            padding: 2rem 1rem;
+            padding: 2rem 1rem 4rem;
             display: flex;
             justify-content: center;
         }
 
         main {
-            width: min(720px, 100%);
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(15, 20, 25, 0.08);
-            padding: 2rem;
-        }
-
-        h1 {
-            margin-top: 0;
-        }
-
-        form {
+            width: min(960px, 100%);
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
-            margin-bottom: 2rem;
         }
 
-        label {
-            display: flex;
-            flex-direction: column;
-            font-weight: 600;
-            gap: 0.5rem;
+        .page-intro {
+            background: #fff;
+            border-radius: 16px;
+            padding: 1.75rem;
+            box-shadow: 0 12px 40px rgba(15, 20, 25, 0.08);
         }
 
-        input[type="range"] {
-            width: 100%;
+        h1 {
+            margin: 0 0 0.5rem;
+            font-size: clamp(1.75rem, 4vw, 2.6rem);
         }
 
-        .preview-card {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
+        p {
+            margin: 0.3rem 0 0;
+            line-height: 1.5;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 16px;
             padding: 1.5rem;
-            background: #fdfdfd;
+            box-shadow: 0 12px 32px rgba(15, 20, 25, 0.05);
         }
 
         .preset-list {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
+            gap: 0.6rem;
         }
 
         .preset-chip {
-            border: 1px solid #cbd5f5;
+            border: 1px solid #d6e0ff;
             background: #eef2ff;
             border-radius: 999px;
-            padding: 0.4rem 0.9rem;
+            padding: 0.45rem 1rem;
             font-size: 0.9rem;
             cursor: pointer;
             transition: background 0.15s ease;
@@ -78,60 +68,317 @@
 
         .preset-chip:hover,
         .preset-chip:focus-visible {
-            background: #dde7ff;
+            background: #d9e3ff;
         }
 
-        .swatch {
-            height: 160px;
-            border-radius: 10px;
-            border: 1px solid rgba(0, 0, 0, 0.1);
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
         }
 
-        .values {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 0.5rem;
-            font-family: "JetBrains Mono", "Fira Mono", monospace;
-            font-size: 0.95rem;
+        .mode-toggle {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
         }
 
-        .css-line {
-            font-family: "JetBrains Mono", "Fira Mono", monospace;
-            font-size: 0.9rem;
-            background: #f1f5f9;
-            padding: 0.6rem 0.8rem;
-            border-radius: 8px;
+        .mode-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+
+        .mode-chip {
+            border: 1px solid #d7dce8;
+            border-radius: 999px;
+            padding: 0.5rem 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            justify-content: space-between;
+            cursor: pointer;
+            font-weight: 600;
         }
 
-        .copy-actions {
+        .mode-chip input {
+            accent-color: #4f46e5;
+        }
+
+        .mode-note {
+            font-size: 0.9rem;
+            color: #5f6b7c;
+        }
+
+        .slider-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        label.slider {
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 0.6rem;
+            font-weight: 600;
+        }
+
+        .slider span {
+            font-size: 0.9rem;
+            color: #475467;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .color-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1rem;
+            align-items: start;
+        }
+
+        .color-input {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .color-input label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             gap: 0.5rem;
         }
 
-        .copy-button {
-            border: 1px solid #cbd5f5;
-            background: #fff;
-            border-radius: 6px;
+        .color-input input[type="color"] {
+            width: 56px;
+            height: 34px;
+            border: none;
+            padding: 0;
+            background: none;
+        }
+
+        .color-input button {
+            align-self: flex-start;
+            border: 1px dashed #d5d9e3;
+            background: transparent;
+            border-radius: 8px;
             padding: 0.2rem 0.6rem;
             font-size: 0.85rem;
             cursor: pointer;
         }
 
-        .hex-note {
+        .color-panel small {
             font-size: 0.85rem;
-            color: #4a5568;
+            color: #667085;
+        }
+
+        .preview-card {
+            background: #fff;
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 20px 45px rgba(15, 20, 25, 0.09);
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .swatch {
+            border-radius: 18px;
+            height: 220px;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .value-grid {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            font-family: "JetBrains Mono", "Fira Mono", monospace;
+            font-size: 0.9rem;
+        }
+
+        .value-grid div {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .value-grid span {
+            font-size: 1.1rem;
+        }
+
+        .mode-pill {
+            margin-top: 1rem;
+            padding: 0.6rem 0.9rem;
+            background: #eef2ff;
+            border-radius: 999px;
+            display: inline-flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+
+        .mode-pill small {
+            font-size: 0.8rem;
+            color: #5b6482;
+        }
+
+        .output-panel h2 {
+            margin: 0 0 0.8rem;
+            font-size: 1.15rem;
+        }
+
+        .output-line {
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+            margin-bottom: 0.4rem;
+            font-family: "JetBrains Mono", "Fira Mono", monospace;
+            font-size: 0.9rem;
+            background: #f5f6fb;
+            padding: 0.5rem 0.7rem;
+            border-radius: 10px;
+        }
+
+        .output-line code {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border: none;
+            background: none;
+        }
+
+        .copy-button {
+            border: 1px solid #cbd4f5;
+            background: #fff;
+            border-radius: 8px;
+            padding: 0.25rem 0.65rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .contrast-grid {
+            margin-top: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1rem;
+        }
+
+        .contrast-card {
+            border: 1px solid #e2e6f4;
+            border-radius: 16px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .contrast-sample {
+            border-radius: 12px;
+            padding: 1rem;
+            font-size: 1.4rem;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .contrast-ratio {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .badge-row {
+            display: flex;
+            gap: 0.3rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            border-radius: 999px;
+            padding: 0.1rem 0.6rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge.pass {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .badge.fail {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .viz-section {
+            margin-top: 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .slice-card {
+            border: 1px solid #e4e7f1;
+            border-radius: 18px;
+            padding: 1rem;
+        }
+
+        .slice-card h3 {
+            margin: 0 0 0.3rem;
+            font-size: 1rem;
+        }
+
+        .slice-card small {
+            color: #5d6a7f;
+        }
+
+        .slice-svg {
+            width: 100%;
+            height: auto;
+            border-radius: 12px;
+            overflow: hidden;
+            display: block;
+            margin: 0.6rem 0;
+            background: #f8fafc;
+        }
+
+        .axis-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        .space-card {
+            grid-column: 1 / -1;
+            border: 1px solid #dde2f7;
+            border-radius: 20px;
+            padding: 1.2rem;
+        }
+
+        #space-canvas {
+            width: 100%;
+            height: 260px;
+            border-radius: 14px;
+            background: radial-gradient(circle at top, rgba(255,255,255,0.8), rgba(226,232,240,0.6));
+        }
+
+        @media (max-width: 720px) {
+            .value-grid {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
 <body>
 <main>
-    <h1>OKLCH Lab</h1>
-    <p>Play with OKLCH sliders to explore perceptually uniform colors. The preview updates live with htmx, no custom JavaScript needed.</p>
+    <section class="page-intro">
+        <h1>LCH Lab</h1>
+        <p>Blend OKLCH and classic LCH workflows in a single Axum + Askama + HTMX playground. Shareable URLs keep slider state, and every update streams through HTMX without custom endpoints.</p>
+    </section>
 
     <div class="preset-list" aria-label="Preset colors">
         {% for preset in presets %}
@@ -141,29 +388,78 @@
         {% endfor %}
     </div>
 
-    <form id="controls" hx-get="/preview" hx-target="#preview" hx-trigger="input" hx-swap="innerHTML">
-        <label>
-            <span>Lightness L (0 - 1)</span>
-            <input class="slider" type="range" name="l" min="0" max="1" step="0.01" value="{{ params.l }}">
-        </label>
+    <form id="controls" hx-get="/preview" hx-target="#preview" hx-trigger="input change" hx-swap="innerHTML">
+        <section class="card mode-toggle">
+            <div>
+                <h2>Mode</h2>
+                <p class="mode-note">Toggle between perceptual OKLCH and a CIELAB-inspired approximation. Values clamp to this playground's supported ranges for stability.</p>
+            </div>
+            <div class="mode-options">
+                <label class="mode-chip">
+                    <input type="radio" name="mode" value="oklch" {% if params.mode.param_value() == "oklch" %}checked{% endif %}>
+                    <span>OKLCH</span>
+                </label>
+                <label class="mode-chip">
+                    <input type="radio" name="mode" value="lch" {% if params.mode.param_value() == "lch" %}checked{% endif %}>
+                    <span>Classic LCH</span>
+                </label>
+            </div>
+        </section>
 
-        <label>
-            <span>Chroma C (0 - 0.4)</span>
-            <input class="slider" type="range" name="c" min="0" max="0.4" step="0.005" value="{{ params.c }}">
-        </label>
+        <section class="card slider-grid">
+            <label class="slider">
+                <div>
+                    <strong>Lightness L</strong>
+                    <span>0.0 – 1.0</span>
+                </div>
+                <input type="range" name="l" min="0" max="1" step="0.01" value="{{ params.l }}">
+            </label>
 
-        <label>
-            <span>Hue H (0 - 360)</span>
-            <input class="slider" type="range" name="h" min="0" max="360" step="1" value="{{ params.h }}">
-        </label>
+            <label class="slider">
+                <div>
+                    <strong>Chroma C</strong>
+                    <span>0.0 – 0.4 OKLCH scale (≈60 in LCH)</span>
+                </div>
+                <input type="range" name="c" min="0" max="0.4" step="0.005" value="{{ params.c }}">
+            </label>
+
+            <label class="slider">
+                <div>
+                    <strong>Hue H</strong>
+                    <span>0° – 360°</span>
+                </div>
+                <input type="range" name="h" min="0" max="360" step="1" value="{{ params.h }}">
+            </label>
+        </section>
+
+        <section class="card color-panel">
+            <div class="color-input">
+                <label>
+                    <span>Foreground color</span>
+                    <input type="color" name="fg" value="{{ fg_color }}">
+                </label>
+                <button type="button" data-sync-color="fg">Use swatch</button>
+                <small>Used when testing text on the LCH swatch background.</small>
+            </div>
+            <div class="color-input">
+                <label>
+                    <span>Background color</span>
+                    <input type="color" name="bg" value="{{ bg_color }}">
+                </label>
+                <button type="button" data-sync-color="bg">Use swatch</button>
+                <small>Used when testing the swatch as text on another surface.</small>
+            </div>
+        </section>
     </form>
 
-    <section id="preview" class="preview-card">
+    <section id="preview" class="preview-card" aria-live="polite">
         {% include "preview.html" %}
     </section>
 </main>
 
 <script>
+let teardownSpace = () => {};
+
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('controls');
     if (!form) return;
@@ -216,6 +512,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1500);
     };
 
+    const setColorFromSwatch = (targetName) => {
+        const field = form.querySelector(`[name="${targetName}"]`);
+        const meta = document.getElementById('swatch-meta');
+        if (!field || !meta) return;
+        const hex = meta.dataset.hex;
+        if (!hex) return;
+        field.value = hex;
+        triggerUpdate();
+        updateUrl();
+    };
+
+    const hydratePointCloud = () => {
+        if (typeof teardownSpace === 'function') {
+            teardownSpace();
+        }
+        teardownSpace = drawPointCloud();
+    };
+
     document.addEventListener('click', async (event) => {
         const preset = event.target.closest('[data-preset]');
         if (preset) {
@@ -236,6 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const target = document.querySelector(copyBtn.dataset.copyTarget);
             if (!target) return;
             const text = target.textContent.trim();
+            if (!text) return;
             try {
                 const success = await copyText(text);
                 if (success) {
@@ -244,10 +559,79 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (_) {
                 // ignore
             }
+            return;
+        }
+
+        const syncBtn = event.target.closest('[data-sync-color]');
+        if (syncBtn) {
+            event.preventDefault();
+            setColorFromSwatch(syncBtn.dataset.syncColor);
         }
     });
 
     form.addEventListener('input', updateUrl);
+    document.addEventListener('htmx:afterSwap', (event) => {
+        if (event.target.id === 'preview') {
+            hydratePointCloud();
+        }
+    });
+
+    const drawPointCloud = () => {
+        const canvas = document.getElementById('space-canvas');
+        const dataNode = document.getElementById('viz-points');
+        if (!canvas || !dataNode) return () => {};
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return () => {};
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+        const viewWidth = rect.width;
+        const viewHeight = rect.height;
+        let points = [];
+        try {
+            points = JSON.parse(dataNode.textContent || '[]');
+        } catch (_) {
+            points = [];
+        }
+        let rotation = 0;
+        let rafId;
+
+        const project = (point) => {
+            const normalizedC = point.c / 0.4;
+            const x = (normalizedC - 0.5) * 180;
+            const y = (1 - point.l) * 200 - 60;
+            const z = (point.h / 360) * 140 - 70;
+            const cos = Math.cos(rotation);
+            const sin = Math.sin(rotation);
+            const projX = viewWidth / 2 + x * cos - z * sin;
+            const projY = viewHeight / 2 + y + (x * sin + z * cos) * 0.2;
+            return { x: projX, y: projY };
+        };
+
+        const render = () => {
+            ctx.clearRect(0, 0, viewWidth, viewHeight);
+            points.forEach((point) => {
+                const pos = project(point);
+                ctx.fillStyle = point.css;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            rotation += 0.01;
+            rafId = requestAnimationFrame(render);
+        };
+
+        render();
+        return () => {
+            if (rafId) {
+                cancelAnimationFrame(rafId);
+            }
+        };
+    };
+
+    hydratePointCloud();
     updateUrl();
 });
 </script>

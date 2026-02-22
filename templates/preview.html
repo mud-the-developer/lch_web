@@ -1,25 +1,156 @@
-<div class="swatch" style="background: {{ params.css_color() }};"></div>
-<div class="values">
-    <div>L: {{ params.l_display() }}</div>
-    <div>C: {{ params.c_display() }}</div>
-    <div>H: {{ params.h_display() }}</div>
-</div>
-<div class="css-line">
-    <span>background: <span id="oklch-value">{{ params.css_color() }}</span>;</span>
-    <div class="copy-actions">
-        <button type="button" class="copy-button" data-copy-target="#oklch-value">Copy oklch()</button>
+<div id="swatch-meta" data-hex="{% match outputs.hex %}{% when Some with (hex) %}{{ hex }}{% when None %}{% endmatch %}" data-css="{{ outputs.active_css }}" hidden></div>
+<div class="preview-grid">
+    <div>
+        <div class="swatch" style="background: {{ params.css_color() }};"></div>
+        <div class="mode-pill">
+            <strong>{{ params.mode.label() }}</strong>
+            <small>{{ params.mode.description() }}</small>
+        </div>
+        <div class="value-grid" aria-label="Current slider values">
+            <div>
+                <small>L</small>
+                <span>{{ params.l_display() }}</span>
+            </div>
+            <div>
+                <small>C</small>
+                <span>{{ params.c_display() }}</span>
+            </div>
+            <div>
+                <small>H</small>
+                <span>{{ params.h_display() }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="output-panel">
+        <h2>Color formats</h2>
+        <div class="output-line">
+            <span>Active mode</span>
+            <code id="active-css">{{ outputs.active_css }}</code>
+            <button type="button" class="copy-button" data-copy-target="#active-css">Copy</button>
+        </div>
+        <div class="output-line">
+            <span>oklch()</span>
+            <code id="oklch-css">{{ outputs.oklch_css }}</code>
+            <button type="button" class="copy-button" data-copy-target="#oklch-css">Copy</button>
+        </div>
+        <div class="output-line">
+            <span>lch()</span>
+            <code id="lch-css">{{ outputs.lch_css }}</code>
+            <button type="button" class="copy-button" data-copy-target="#lch-css">Copy</button>
+        </div>
+        {% match outputs.hex %}
+        {% when Some with (hex) %}
+        <div class="output-line">
+            <span>hex</span>
+            <code id="hex-css">{{ hex }}</code>
+            <button type="button" class="copy-button" data-copy-target="#hex-css">Copy</button>
+        </div>
+        {% when None %}
+        <div class="output-line">
+            <span>hex</span>
+            <code>Unavailable (out of sRGB gamut)</code>
+        </div>
+        {% endmatch %}
+        {% match outputs.rgb %}
+        {% when Some with (rgb) %}
+        <div class="output-line">
+            <span>rgb()</span>
+            <code id="rgb-css">{{ rgb }}</code>
+            <button type="button" class="copy-button" data-copy-target="#rgb-css">Copy</button>
+        </div>
+        {% when None %}
+        <div class="output-line">
+            <span>rgb()</span>
+            <code>Unavailable</code>
+        </div>
+        {% endmatch %}
+        {% match outputs.hsl %}
+        {% when Some with (hsl) %}
+        <div class="output-line">
+            <span>hsl()</span>
+            <code id="hsl-css">{{ hsl }}</code>
+            <button type="button" class="copy-button" data-copy-target="#hsl-css">Copy</button>
+        </div>
+        {% when None %}
+        <div class="output-line">
+            <span>hsl()</span>
+            <code>Unavailable</code>
+        </div>
+        {% endmatch %}
     </div>
 </div>
-{% match hex_value %}
-{% when Some with (hex) %}
-<div class="css-line">
-    <span>Hex approx: <span id="hex-value">{{ hex }}</span></span>
-    <div class="copy-actions">
-        <button type="button" class="copy-button" data-copy-target="#hex-value">Copy hex</button>
-    </div>
-</div>
-{% when None %}
-<div class="css-line">
-    <span class="hex-note">Hex approx unavailable (CSS parser fallback).</span>
-</div>
-{% endmatch %}
+
+<section class="contrast-grid">
+    <article class="contrast-card">
+        <h3>Swatch as background</h3>
+        {% match contrast.swatch_as_background %}
+        {% when Some with (summary) %}
+        <div class="contrast-ratio" aria-label="Contrast ratio">{{ summary.ratio_display() }}</div>
+        <div class="contrast-sample" style="color: {{ fg_color }}; background: {{ params.css_color() }};">Aa</div>
+        <div class="badge-row">
+            <span class="badge {% if summary.aa_normal %}pass{% else %}fail{% endif %}">AA</span>
+            <span class="badge {% if summary.aaa_normal %}pass{% else %}fail{% endif %}">AAA</span>
+            <span class="badge {% if summary.aa_large %}pass{% else %}fail{% endif %}">AA Large</span>
+            <span class="badge {% if summary.aaa_large %}pass{% else %}fail{% endif %}">AAA Large</span>
+        </div>
+        {% when None %}
+        <p>Contrast unavailable for this selection.</p>
+        {% endmatch %}
+        <small>Foreground picker controls the text color in this block.</small>
+    </article>
+    <article class="contrast-card">
+        <h3>Swatch as text</h3>
+        {% match contrast.swatch_as_foreground %}
+        {% when Some with (summary) %}
+        <div class="contrast-ratio">{{ summary.ratio_display() }}</div>
+        <div class="contrast-sample" style="color: {{ params.css_color() }}; background: {{ bg_color }};">Aa</div>
+        <div class="badge-row">
+            <span class="badge {% if summary.aa_normal %}pass{% else %}fail{% endif %}">AA</span>
+            <span class="badge {% if summary.aaa_normal %}pass{% else %}fail{% endif %}">AAA</span>
+            <span class="badge {% if summary.aa_large %}pass{% else %}fail{% endif %}">AA Large</span>
+            <span class="badge {% if summary.aaa_large %}pass{% else %}fail{% endif %}">AAA Large</span>
+        </div>
+        {% when None %}
+        <p>Contrast unavailable for this selection.</p>
+        {% endmatch %}
+        <small>Background picker controls the sample background.</small>
+    </article>
+</section>
+
+<section class="viz-section">
+    <article class="slice-card">
+        <h3>{{ viz.lc_slice.title }}</h3>
+        <small>{{ viz.lc_slice.subtitle }}</small>
+        <svg class="slice-svg" viewBox="0 0 {{ viz.lc_slice.width }} {{ viz.lc_slice.height }}" width="{{ viz.lc_slice.width }}" height="{{ viz.lc_slice.height }}" role="img" aria-label="{{ viz.lc_slice.title }}">
+            {% for cell in viz.lc_slice.cells %}
+            <rect x="{{ cell.x }}" y="{{ cell.y }}" width="{{ viz.lc_slice.cell }}" height="{{ viz.lc_slice.cell }}" fill="{{ cell.color }}"></rect>
+            {% endfor %}
+        </svg>
+        <div class="axis-labels">
+            {% for label in viz.lc_slice.horizontal_labels %}
+            <span>{{ label }}</span>
+            {% endfor %}
+        </div>
+    </article>
+    <article class="slice-card">
+        <h3>{{ viz.ch_slice.title }}</h3>
+        <small>{{ viz.ch_slice.subtitle }}</small>
+        <svg class="slice-svg" viewBox="0 0 {{ viz.ch_slice.width }} {{ viz.ch_slice.height }}" width="{{ viz.ch_slice.width }}" height="{{ viz.ch_slice.height }}" role="img" aria-label="{{ viz.ch_slice.title }}">
+            {% for cell in viz.ch_slice.cells %}
+            <rect x="{{ cell.x }}" y="{{ cell.y }}" width="{{ viz.ch_slice.cell }}" height="{{ viz.ch_slice.cell }}" fill="{{ cell.color }}"></rect>
+            {% endfor %}
+        </svg>
+        <div class="axis-labels">
+            {% for label in viz.ch_slice.horizontal_labels %}
+            <span>{{ label }}</span>
+            {% endfor %}
+        </div>
+    </article>
+    <article class="space-card">
+        <h3>Point cloud</h3>
+        <p>A lightweight pseudo-3D view samples the space at different L, C, and H values. Drag sliders or toggle modes to regenerate the points.</p>
+        <canvas id="space-canvas" width="640" height="300"></canvas>
+        <script id="viz-points" type="application/json">{{ viz.points_json|safe }}</script>
+    </article>
+</section>
