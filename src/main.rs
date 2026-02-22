@@ -1,6 +1,7 @@
 use askama::Template;
 use askama_axum::IntoResponse;
 use axum::{extract::Query, routing::get, Router};
+use csscolorparser::parse;
 use serde::Deserialize;
 use std::net::SocketAddr;
 
@@ -24,16 +25,25 @@ async fn main() {
     axum::serve(listener, app).await.expect("server error");
 }
 
-async fn index() -> impl IntoResponse {
+async fn index(query: Option<Query<PreviewQuery>>) -> impl IntoResponse {
+    let params = query
+        .map(|Query(query)| ColorParams::from_query(query))
+        .unwrap_or_default();
+
     IndexTemplate {
-        params: ColorParams::default(),
+        params,
+        presets: &PRESETS,
+        hex_value: params.hex_color(),
     }
 }
 
 async fn preview(Query(query): Query<PreviewQuery>) -> impl IntoResponse {
     let params = ColorParams::from_query(query);
 
-    PreviewTemplate { params }
+    PreviewTemplate {
+        params,
+        hex_value: params.hex_color(),
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -74,6 +84,13 @@ impl ColorParams {
     pub fn h_display(&self) -> String {
         format!("{:.0}", self.h)
     }
+
+    fn hex_color(&self) -> Option<String> {
+        let css = self.css_color();
+        let color = parse(&css).ok()?;
+        let [r, g, b, _] = color.to_rgba8();
+        Some(format!("#{:02X}{:02X}{:02X}", r, g, b))
+    }
 }
 
 impl Default for ColorParams {
@@ -86,16 +103,54 @@ impl Default for ColorParams {
     }
 }
 
+#[derive(Clone, Copy)]
+struct Preset {
+    name: &'static str,
+    l: f64,
+    c: f64,
+    h: f64,
+}
+
+const PRESETS: [Preset; 4] = [
+    Preset {
+        name: "Sky",
+        l: 0.88,
+        c: 0.08,
+        h: 220.0,
+    },
+    Preset {
+        name: "Indigo",
+        l: 0.72,
+        c: 0.15,
+        h: 260.0,
+    },
+    Preset {
+        name: "Rose",
+        l: 0.74,
+        c: 0.17,
+        h: 20.0,
+    },
+    Preset {
+        name: "Mint",
+        l: 0.82,
+        c: 0.11,
+        h: 160.0,
+    },
+];
+
 #[derive(Template)]
 #[template(path = "index.html")]
 struct IndexTemplate {
     params: ColorParams,
+    presets: &'static [Preset],
+    hex_value: Option<String>,
 }
 
 #[derive(Template)]
 #[template(path = "preview.html")]
 struct PreviewTemplate {
     params: ColorParams,
+    hex_value: Option<String>,
 }
 
 fn clamp(value: Option<f64>, default: f64, min: f64, max: f64) -> f64 {

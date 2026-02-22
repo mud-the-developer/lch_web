@@ -9,3 +9,4 @@ askama = { version = "0.12", features = ["with-axum"] }
 askama_axum = "0.4"
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+csscolorparser = "0.8"

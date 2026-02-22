@@ -59,6 +59,28 @@
             background: #fdfdfd;
         }
 
+        .preset-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .preset-chip {
+            border: 1px solid #cbd5f5;
+            background: #eef2ff;
+            border-radius: 999px;
+            padding: 0.4rem 0.9rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .preset-chip:hover,
+        .preset-chip:focus-visible {
+            background: #dde7ff;
+        }
+
         .swatch {
             height: 160px;
             border-radius: 10px;
@@ -79,6 +101,30 @@
             background: #f1f5f9;
             padding: 0.6rem 0.8rem;
             border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            justify-content: space-between;
+        }
+
+        .copy-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .copy-button {
+            border: 1px solid #cbd5f5;
+            background: #fff;
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .hex-note {
+            font-size: 0.85rem;
+            color: #4a5568;
         }
     </style>
 </head>
@@ -86,6 +132,14 @@
 <main>
     <h1>OKLCH Lab</h1>
     <p>Play with OKLCH sliders to explore perceptually uniform colors. The preview updates live with htmx, no custom JavaScript needed.</p>
+
+    <div class="preset-list" aria-label="Preset colors">
+        {% for preset in presets %}
+        <button type="button" class="preset-chip" data-preset data-l="{{ preset.l }}" data-c="{{ preset.c }}" data-h="{{ preset.h }}">
+            {{ preset.name }}
+        </button>
+        {% endfor %}
+    </div>
 
     <form id="controls" hx-get="/preview" hx-target="#preview" hx-trigger="input" hx-swap="innerHTML">
         <label>
@@ -108,5 +162,94 @@
         {% include "preview.html" %}
     </section>
 </main>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('controls');
+    if (!form) return;
+
+    const sliders = {
+        l: form.querySelector('input[name="l"]'),
+        c: form.querySelector('input[name="c"]'),
+        h: form.querySelector('input[name="h"]'),
+    };
+
+    const updateUrl = () => {
+        const data = new FormData(form);
+        const params = new URLSearchParams(data);
+        const query = params.toString();
+        const next = query ? `${location.pathname}?${query}` : location.pathname;
+        history.replaceState({}, '', next);
+    };
+
+    const triggerUpdate = () => {
+        form.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    const copyText = async (text) => {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return true;
+        }
+
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        try {
+            return document.execCommand('copy');
+        } finally {
+            textarea.remove();
+        }
+    };
+
+    const showCopied = (button) => {
+        const original = button.textContent;
+        button.textContent = 'Copied!';
+        button.disabled = true;
+        setTimeout(() => {
+            button.textContent = original;
+            button.disabled = false;
+        }, 1500);
+    };
+
+    document.addEventListener('click', async (event) => {
+        const preset = event.target.closest('[data-preset]');
+        if (preset) {
+            event.preventDefault();
+            Object.keys(sliders).forEach((key) => {
+                const slider = sliders[key];
+                if (!slider) return;
+                slider.value = preset.dataset[key];
+            });
+            triggerUpdate();
+            updateUrl();
+            return;
+        }
+
+        const copyBtn = event.target.closest('[data-copy-target]');
+        if (copyBtn) {
+            event.preventDefault();
+            const target = document.querySelector(copyBtn.dataset.copyTarget);
+            if (!target) return;
+            const text = target.textContent.trim();
+            try {
+                const success = await copyText(text);
+                if (success) {
+                    showCopied(copyBtn);
+                }
+            } catch (_) {
+                // ignore
+            }
+        }
+    });
+
+    form.addEventListener('input', updateUrl);
+    updateUrl();
+});
+</script>
 </body>
 </html>

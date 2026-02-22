@@ -4,4 +4,22 @@
     <div>C: {{ params.c_display() }}</div>
     <div>H: {{ params.h_display() }}</div>
 </div>
-<div class="css-line">background: {{ params.css_color() }};</div>
+<div class="css-line">
+    <span>background: <span id="oklch-value">{{ params.css_color() }}</span>;</span>
+    <div class="copy-actions">
+        <button type="button" class="copy-button" data-copy-target="#oklch-value">Copy oklch()</button>
+    </div>
+</div>
+{% match hex_value %}
+{% when Some with (hex) %}
+<div class="css-line">
+    <span>Hex approx: <span id="hex-value">{{ hex }}</span></span>
+    <div class="copy-actions">
+        <button type="button" class="copy-button" data-copy-target="#hex-value">Copy hex</button>
+    </div>
+</div>
+{% when None %}
+<div class="css-line">
+    <span class="hex-note">Hex approx unavailable (CSS parser fallback).</span>
+</div>
+{% endmatch %}
