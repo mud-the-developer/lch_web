@@ -15,7 +15,11 @@ async fn main() {
         .route("/", get(index))
         .route("/preview", get(preview));
 
-    let addr: SocketAddr = ([127, 0, 0, 1], 3000).into();
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(3000);
+    let addr: SocketAddr = ([127, 0, 0, 1], port).into();
     println!("listening on {addr}");
 
     let listener = tokio::net::TcpListener::bind(addr)
