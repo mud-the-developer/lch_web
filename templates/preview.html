@@ -148,9 +148,19 @@
         </div>
     </article>
     <article class="space-card">
-        <h3>Point cloud</h3>
-        <p>A lightweight pseudo-3D view samples the space at different L, C, and H values. Drag sliders or toggle modes to regenerate the points.</p>
-        <canvas id="space-canvas" width="640" height="300"></canvas>
+        <h3>3D LCH axes</h3>
+        <p>Explore the sampled space with actual H/L/C axes. Drag to rotate, scroll to zoom, and track how your current selection lands inside the volume.</p>
+        <canvas
+            id="space-canvas"
+            width="640"
+            height="300"
+            data-mode="{{ params.mode.param_value() }}"
+            data-selected-l="{{ params.l }}"
+            data-selected-c="{{ params.c }}"
+            data-selected-h="{{ params.h }}"
+            data-selected-css="{{ params.css_color() }}"
+            aria-label="Interactive 3D plot of the LCH space"
+        ></canvas>
         <script id="viz-points" type="application/json">{{ viz.points_json|safe }}</script>
     </article>
 </section>

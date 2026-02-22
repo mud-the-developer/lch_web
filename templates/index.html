@@ -389,6 +389,11 @@
             border-radius: 14px;
             border: 1px solid rgba(148,163,184,0.25);
             background: radial-gradient(circle at top, rgba(99,102,241,0.22), rgba(15,23,42,0.9));
+            cursor: grab;
+        }
+
+        #space-canvas.is-dragging {
+            cursor: grabbing;
         }
 
         @media (max-width: 720px) {
@@ -485,6 +490,7 @@
 
 <script>
 let teardownSpace = () => {};
+const LCH_CHROMA_SCALE = 150;
 
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('controls');
@@ -501,7 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toCssColor = (lv, cv, hv, mode) => {
         if (mode === 'lch') {
             const lPct = (lv * 100).toFixed(1) + '%';
-            const cLab = (cv * 150).toFixed(2);
+            const cLab = (cv * LCH_CHROMA_SCALE).toFixed(2);
             return `lch(${lPct} ${cLab} ${hv.toFixed(0)})`;
         }
         return `oklch(${lv.toFixed(2)} ${cv.toFixed(3)} ${hv.toFixed(0)})`;
@@ -586,7 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof teardownSpace === 'function') {
             teardownSpace();
         }
-        teardownSpace = drawPointCloud();
+        teardownSpace = drawLchAxes();
     };
 
     document.addEventListener('click', async (event) => {
@@ -639,58 +645,351 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const drawPointCloud = () => {
+    const drawLchAxes = () => {
         const canvas = document.getElementById('space-canvas');
         const dataNode = document.getElementById('viz-points');
         if (!canvas || !dataNode) return () => {};
         const ctx = canvas.getContext('2d');
         if (!ctx) return () => {};
-        const rect = canvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
-        const viewWidth = rect.width;
-        const viewHeight = rect.height;
-        let points = [];
-        try {
-            points = JSON.parse(dataNode.textContent || '[]');
-        } catch (_) {
-            points = [];
-        }
-        let rotation = 0;
-        let rafId;
 
-        const project = (point) => {
-            const normalizedC = point.c / 0.4;
-            const x = (normalizedC - 0.5) * 180;
-            const y = (1 - point.l) * 200 - 60;
-            const z = (point.h / 360) * 140 - 70;
-            const cos = Math.cos(rotation);
-            const sin = Math.sin(rotation);
-            const projX = viewWidth / 2 + x * cos - z * sin;
-            const projY = viewHeight / 2 + y + (x * sin + z * cos) * 0.2;
-            return { x: projX, y: projY };
+        const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+        const safeNumber = (value, fallback = 0) => {
+            const parsed = parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : fallback;
+        };
+        const normalizeValue = (value, max) => {
+            if (!Number.isFinite(value) || max === 0) return 0;
+            return clamp(value / max, 0, 1);
+        };
+
+        let samples = [];
+        try {
+            samples = JSON.parse(dataNode.textContent || '[]');
+        } catch (_) {
+            samples = [];
+        }
+
+        const mode = (canvas.dataset.mode || 'oklch').toLowerCase();
+        const isLchMode = mode === 'lch';
+        const selected = {
+            l: safeNumber(canvas.dataset.selectedL, 0.0),
+            c: safeNumber(canvas.dataset.selectedC, 0.0),
+            h: safeNumber(canvas.dataset.selectedH, 0.0),
+            css: canvas.dataset.selectedCss || '#ffffff',
+        };
+
+        const normalizedPoints = samples.map((point) => ({
+            x: normalizeValue(point.h, 360),
+            y: clamp(point.l == null ? 0 : point.l, 0, 1),
+            z: normalizeValue(point.c, 0.4),
+            css: point.css,
+        }));
+
+        const selectedNormalized = {
+            x: normalizeValue(selected.h, 360),
+            y: clamp(selected.l, 0, 1),
+            z: normalizeValue(selected.c, 0.4),
+        };
+
+        const pivot = { x: 0.5, y: 0.5, z: 0.5 };
+        const state = {
+            rotationX: -0.65,
+            rotationY: Math.PI / 5,
+            zoom: 1.05,
+        };
+
+        let width = 0;
+        let height = 0;
+        let isDragging = false;
+        let pointerId = null;
+        let lastPointer = { x: 0, y: 0 };
+
+        const projectPoint = (point) => {
+            const px = point.x - pivot.x;
+            const py = point.y - pivot.y;
+            const pz = point.z - pivot.z;
+            const cosY = Math.cos(state.rotationY);
+            const sinY = Math.sin(state.rotationY);
+            const dx = px * cosY - pz * sinY;
+            const dz = px * sinY + pz * cosY;
+            const cosX = Math.cos(state.rotationX);
+            const sinX = Math.sin(state.rotationX);
+            const dy = py * cosX - dz * sinX;
+            const dz2 = py * sinX + dz * cosX;
+            const base = Math.min(width, height) * 0.65 * state.zoom;
+            const screenX = width / 2 + dx * base;
+            const screenY = height / 2 - dy * base + dz2 * base * 0.25;
+            return { x: screenX, y: screenY, depth: dz2 };
+        };
+
+        const resizeCanvas = () => {
+            const rect = canvas.getBoundingClientRect();
+            width = rect.width;
+            height = rect.height;
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.max(1, Math.floor(width * dpr));
+            canvas.height = Math.max(1, Math.floor(height * dpr));
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            render();
+        };
+
+        const normalize2d = (x, y) => {
+            const length = Math.hypot(x, y) || 1;
+            return { x: x / length, y: y / length };
+        };
+
+        const drawCube = () => {
+            const corners = [
+                { x: 0, y: 0, z: 0 },
+                { x: 1, y: 0, z: 0 },
+                { x: 1, y: 1, z: 0 },
+                { x: 0, y: 1, z: 0 },
+                { x: 0, y: 0, z: 1 },
+                { x: 1, y: 0, z: 1 },
+                { x: 1, y: 1, z: 1 },
+                { x: 0, y: 1, z: 1 },
+            ];
+            const edges = [
+                [0, 1],
+                [1, 2],
+                [2, 3],
+                [3, 0],
+                [4, 5],
+                [5, 6],
+                [6, 7],
+                [7, 4],
+                [0, 4],
+                [1, 5],
+                [2, 6],
+                [3, 7],
+            ];
+            ctx.strokeStyle = 'rgba(148,163,184,0.25)';
+            ctx.lineWidth = 1;
+            edges.forEach(([start, end]) => {
+                const a = projectPoint(corners[start]);
+                const b = projectPoint(corners[end]);
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+            });
+        };
+
+        const formatChroma = (value) => {
+            if (isLchMode) {
+                return `${Math.round(value * LCH_CHROMA_SCALE)}`;
+            }
+            return value.toFixed(3);
+        };
+
+        const drawAxes = () => {
+            const origin = projectPoint({ x: 0, y: 0, z: 0 });
+            const axes = [
+                {
+                    dir: { x: 1, y: 0, z: 0 },
+                    color: '#fdba74',
+                    label: 'Hue H°',
+                    ticks: [0, 90, 180, 270, 360],
+                    max: 360,
+                    formatter: (value) => `${value.toFixed(0)}°`,
+                },
+                {
+                    dir: { x: 0, y: 1, z: 0 },
+                    color: '#86efac',
+                    label: 'Lightness L',
+                    ticks: [0, 0.25, 0.5, 0.75, 1],
+                    max: 1,
+                    formatter: (value) => value.toFixed(2),
+                },
+                {
+                    dir: { x: 0, y: 0, z: 1 },
+                    color: '#93c5fd',
+                    label: `Chroma C (${isLchMode ? 'LCH' : 'OKLCH'})`,
+                    ticks: [0, 0.1, 0.2, 0.3, 0.4],
+                    max: 0.4,
+                    formatter: (value) => formatChroma(value),
+                },
+            ];
+
+            axes.forEach((axis) => {
+                const endPoint = projectPoint(axis.dir);
+                ctx.strokeStyle = axis.color;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(origin.x, origin.y);
+                ctx.lineTo(endPoint.x, endPoint.y);
+                ctx.stroke();
+
+                const axisVector = normalize2d(endPoint.x - origin.x, endPoint.y - origin.y);
+                const tickNormal = { x: -axisVector.y, y: axisVector.x };
+
+                axis.ticks.forEach((tickValue) => {
+                    const fraction = axis.max === 0 ? 0 : tickValue / axis.max;
+                    const tickPoint = projectPoint({
+                        x: axis.dir.x * fraction,
+                        y: axis.dir.y * fraction,
+                        z: axis.dir.z * fraction,
+                    });
+                    const tickSize = 5;
+                    ctx.strokeStyle = 'rgba(226,232,240,0.8)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(tickPoint.x - tickNormal.x * tickSize, tickPoint.y - tickNormal.y * tickSize);
+                    ctx.lineTo(tickPoint.x + tickNormal.x * tickSize, tickPoint.y + tickNormal.y * tickSize);
+                    ctx.stroke();
+
+                    ctx.fillStyle = 'rgba(226,232,240,0.95)';
+                    ctx.font = '11px "Inter", "SF Pro Display", system-ui, sans-serif';
+                    const baseline = tickNormal.y > 0.3 ? 'top' : tickNormal.y < -0.3 ? 'bottom' : 'middle';
+                    ctx.textBaseline = baseline;
+                    const align = tickNormal.x < -0.2 ? 'right' : tickNormal.x > 0.2 ? 'left' : 'center';
+                    ctx.textAlign = align;
+                    ctx.fillText(
+                        axis.formatter(tickValue),
+                        tickPoint.x + tickNormal.x * (tickSize + 10),
+                        tickPoint.y + tickNormal.y * (tickSize + 10)
+                    );
+                });
+
+                ctx.fillStyle = axis.color;
+                ctx.font = '12px "Inter", "SF Pro Display", system-ui, sans-serif';
+                const axisAlign = axisVector.x < -0.2 ? 'right' : axisVector.x > 0.2 ? 'left' : 'center';
+                ctx.textAlign = axisAlign;
+                ctx.textBaseline = axisVector.y > 0.4 ? 'bottom' : axisVector.y < -0.4 ? 'top' : 'middle';
+                ctx.fillText(
+                    axis.label,
+                    endPoint.x + axisVector.x * 16,
+                    endPoint.y + axisVector.y * 16
+                );
+            });
+        };
+
+        const drawPoints = () => {
+            if (!normalizedPoints.length) return;
+            const projected = normalizedPoints
+                .map((point) => ({ ...projectPoint(point), css: point.css }))
+                .sort((a, b) => a.depth - b.depth);
+            projected.forEach((point) => {
+                const depthFactor = clamp((point.depth + 0.8) / 1.6, 0, 1);
+                const radius = 2.5 + depthFactor * 3.5;
+                ctx.globalAlpha = 0.7 + depthFactor * 0.3;
+                ctx.fillStyle = point.css;
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        };
+
+        const drawSelected = () => {
+            if (!Number.isFinite(selectedNormalized.x)) return;
+            const pos = projectPoint(selectedNormalized);
+            ctx.fillStyle = selected.css;
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            const chromaLabel = formatChroma(selected.c);
+            const label = `L ${selected.l.toFixed(2)}  C ${chromaLabel}  H ${selected.h.toFixed(0)}°`;
+            ctx.font = '12px "Inter", "SF Pro Display", system-ui, sans-serif';
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'left';
+            const padding = 6;
+            const metrics = ctx.measureText(label);
+            const bubbleHeight = 24;
+            const halfBubble = bubbleHeight / 2;
+            let boxX = pos.x + 14;
+            let textY = pos.y - 18;
+            boxX = clamp(boxX, 8, width - metrics.width - padding * 2 - 8);
+            textY = clamp(textY, halfBubble + 4, height - halfBubble - 4);
+            ctx.fillStyle = 'rgba(15,23,42,0.85)';
+            ctx.fillRect(boxX - padding, textY - halfBubble, metrics.width + padding * 2, bubbleHeight);
+            ctx.fillStyle = '#f1f5f9';
+            ctx.fillText(label, boxX, textY);
         };
 
         const render = () => {
-            ctx.clearRect(0, 0, viewWidth, viewHeight);
-            points.forEach((point) => {
-                const pos = project(point);
-                ctx.fillStyle = point.css;
-                ctx.beginPath();
-                ctx.arc(pos.x, pos.y, 4, 0, Math.PI * 2);
-                ctx.fill();
-            });
-            rotation += 0.01;
-            rafId = requestAnimationFrame(render);
+            if (!width || !height) return;
+            ctx.clearRect(0, 0, width, height);
+            drawCube();
+            drawAxes();
+            drawPoints();
+            drawSelected();
         };
 
-        render();
-        return () => {
-            if (rafId) {
-                cancelAnimationFrame(rafId);
+        const onPointerDown = (event) => {
+            event.preventDefault();
+            isDragging = true;
+            pointerId = event.pointerId;
+            lastPointer = { x: event.clientX, y: event.clientY };
+            if (canvas.setPointerCapture) {
+                try {
+                    canvas.setPointerCapture(event.pointerId);
+                } catch (_) {
+                    // ignore
+                }
             }
+            canvas.classList.add('is-dragging');
+        };
+
+        const onPointerMove = (event) => {
+            if (!isDragging || event.pointerId !== pointerId) return;
+            event.preventDefault();
+            const dx = event.clientX - lastPointer.x;
+            const dy = event.clientY - lastPointer.y;
+            state.rotationY += dx * 0.01;
+            state.rotationX += dy * 0.01;
+            const pitchLimit = Math.PI / 2 - 0.1;
+            state.rotationX = clamp(state.rotationX, -pitchLimit, pitchLimit);
+            lastPointer = { x: event.clientX, y: event.clientY };
+            render();
+        };
+
+        const endDrag = (event) => {
+            if (event.pointerId !== pointerId) return;
+            isDragging = false;
+            pointerId = null;
+            if (canvas.releasePointerCapture) {
+                try {
+                    canvas.releasePointerCapture(event.pointerId);
+                } catch (_) {
+                    // ignore
+                }
+            }
+            canvas.classList.remove('is-dragging');
+        };
+
+        const onWheel = (event) => {
+            event.preventDefault();
+            const zoomFactor = Math.exp(-event.deltaY * 0.001);
+            state.zoom = clamp(state.zoom * zoomFactor, 0.6, 2.4);
+            render();
+        };
+
+        const onResize = () => resizeCanvas();
+
+        window.addEventListener('resize', onResize);
+        canvas.addEventListener('pointerdown', onPointerDown);
+        canvas.addEventListener('pointermove', onPointerMove);
+        canvas.addEventListener('pointerup', endDrag);
+        canvas.addEventListener('pointerleave', endDrag);
+        canvas.addEventListener('pointercancel', endDrag);
+        canvas.addEventListener('wheel', onWheel, { passive: false });
+
+        resizeCanvas();
+
+        return () => {
+            window.removeEventListener('resize', onResize);
+            canvas.removeEventListener('pointerdown', onPointerDown);
+            canvas.removeEventListener('pointermove', onPointerMove);
+            canvas.removeEventListener('pointerup', endDrag);
+            canvas.removeEventListener('pointerleave', endDrag);
+            canvas.removeEventListener('pointercancel', endDrag);
+            canvas.removeEventListener('wheel', onWheel);
+            canvas.classList.remove('is-dragging');
         };
     };
 
