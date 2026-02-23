@@ -99,43 +99,82 @@
     </article>
 </section>
 
-<section class="viz-matrix" data-view-mode="{{ viz.view_mode.param_value() }}">
+<section class="lab-field" data-view-mode="{{ viz.view_mode.param_value() }}">
     {% for panel in viz.panels %}
-    <article class="slice-card" data-panel="{% if panel.mode.param_value() == viz.active_mode.param_value() %}primary{% else %}secondary{% endif %}">
+    <article class="lab-panel" data-panel="{% if panel.mode.param_value() == viz.active_mode.param_value() %}primary{% else %}secondary{% endif %}" data-mode="{{ panel.mode.param_value() }}">
         <header>
             <div>
-                <h3>{{ panel.mode.label() }} slices</h3>
-                <small>{{ panel.mode.description() }}</small>
+                <h3>{{ panel.mode.label() }} field maps</h3>
+                <p>{{ panel.mode.description() }}</p>
             </div>
+            <span class="mode-pill {% if panel.mode.param_value() == "oklch" %}oklch{% else %}lch{% endif %}">
+                {% if panel.mode.param_value() == viz.active_mode.param_value() %}Primary{% else %}Reference{% endif %}
+            </span>
         </header>
-        <div class="slice-stack">
-            <div>
-                <strong>{{ panel.slices.lc_slice.title }}</strong>
-                <small>{{ panel.slices.lc_slice.subtitle }}</small>
-                <svg class="slice-svg" viewBox="0 0 {{ panel.slices.lc_slice.width }} {{ panel.slices.lc_slice.height }}" width="{{ panel.slices.lc_slice.width }}" height="{{ panel.slices.lc_slice.height }}" role="img" aria-label="{{ panel.slices.lc_slice.title }}">
-                    {% for cell in panel.slices.lc_slice.cells %}
-                    <rect x="{{ cell.x }}" y="{{ cell.y }}" width="{{ panel.slices.lc_slice.cell }}" height="{{ panel.slices.lc_slice.cell }}" fill="{{ cell.color }}"></rect>
-                    {% endfor %}
-                </svg>
-                <div class="axis-labels">
-                    {% for label in panel.slices.lc_slice.horizontal_labels %}
-                    <span>{{ label }}</span>
-                    {% endfor %}
+        <div class="lab-map-grid">
+            <div class="map-card is-polar">
+                <div class="map-card-head">
+                    <div>
+                        <strong>Hue × chroma polar view</strong>
+                        <small>Lightness {{ panel.params.l_display() }}</small>
+                    </div>
+                    <div class="axis-chip-row">
+                        <span class="axis-chip">Hue ↻</span>
+                        <span class="axis-chip">Chroma ↗</span>
+                    </div>
                 </div>
+                <div class="map-surface" data-map="polar" data-mode="{{ panel.mode.param_value() }}" data-l="{{ panel.params.l }}" data-c="{{ panel.params.c }}" data-h="{{ panel.params.h }}" role="img" aria-label="Polar hue versus chroma for {{ panel.mode.label() }}">
+                    <canvas></canvas>
+                    <div class="map-axis-label axis-top">Hue 0°→360°</div>
+                    <div class="map-axis-label axis-left">Chroma</div>
+                </div>
+                <p class="map-note">
+                    {% if panel.mode.param_value() == "lch" %}
+                        Outer radius ≈{{ viz.max_lch_chroma_display() }} C (classic LCH scale).
+                    {% else %}
+                        Outer radius 0.40 OK chroma (CSS OKLCH units).
+                    {% endif %}
+                </p>
             </div>
-            <div>
-                <strong>{{ panel.slices.ch_slice.title }}</strong>
-                <small>{{ panel.slices.ch_slice.subtitle }}</small>
-                <svg class="slice-svg" viewBox="0 0 {{ panel.slices.ch_slice.width }} {{ panel.slices.ch_slice.height }}" width="{{ panel.slices.ch_slice.width }}" height="{{ panel.slices.ch_slice.height }}" role="img" aria-label="{{ panel.slices.ch_slice.title }}">
-                    {% for cell in panel.slices.ch_slice.cells %}
-                    <rect x="{{ cell.x }}" y="{{ cell.y }}" width="{{ panel.slices.ch_slice.cell }}" height="{{ panel.slices.ch_slice.cell }}" fill="{{ cell.color }}"></rect>
-                    {% endfor %}
-                </svg>
-                <div class="axis-labels">
-                    {% for label in panel.slices.ch_slice.horizontal_labels %}
-                    <span>{{ label }}</span>
-                    {% endfor %}
+            <div class="map-card">
+                <div class="map-card-head">
+                    <div>
+                        <strong>Lightness × chroma plane</strong>
+                        <small>Hue {{ panel.params.h_display() }}°</small>
+                    </div>
+                    <div class="axis-chip-row">
+                        <span class="axis-chip">Lightness ↑</span>
+                        <span class="axis-chip">Chroma →</span>
+                    </div>
                 </div>
+                <div class="map-surface" data-map="lc" data-mode="{{ panel.mode.param_value() }}" data-l="{{ panel.params.l }}" data-c="{{ panel.params.c }}" data-h="{{ panel.params.h }}" role="img" aria-label="Lightness versus chroma heatmap for {{ panel.mode.label() }}">
+                    <canvas></canvas>
+                    <div class="map-axis-label axis-left">Lightness</div>
+                    <div class="map-axis-label axis-bottom">Chroma</div>
+                </div>
+                <p class="map-note">Crosshair marks the slider state. {% if panel.mode.param_value() == "lch" %}≈{{ viz.max_lch_chroma_display() }} C limit.{% else %}0.40 OK chroma limit.{% endif %}</p>
+            </div>
+            <div class="map-card">
+                <div class="map-card-head">
+                    <div>
+                        <strong>Hue × lightness strip</strong>
+                        <small>Chroma {{ panel.chroma_value_display() }} {{ panel.chroma_note() }}</small>
+                    </div>
+                    <div class="axis-chip-row">
+                        <span class="axis-chip">Hue →</span>
+                        <span class="axis-chip">Lightness ↑</span>
+                    </div>
+                </div>
+                <div class="map-surface" data-map="hl" data-mode="{{ panel.mode.param_value() }}" data-l="{{ panel.params.l }}" data-c="{{ panel.params.c }}" data-h="{{ panel.params.h }}" role="img" aria-label="Hue versus lightness strip for {{ panel.mode.label() }}">
+                    <canvas></canvas>
+                    <div class="map-axis-label axis-left">Lightness</div>
+                    <div class="map-axis-label axis-bottom">Hue</div>
+                </div>
+                <p class="map-note">Fixed chroma slice rendered across hue/lightness.
+                    {% if panel.mode.param_value() == "lch" %}
+                        Displays ≈{{ panel.chroma_value_display() }} C.
+                    {% endif %}
+                </p>
             </div>
         </div>
     </article>
@@ -145,8 +184,8 @@
 <section class="space-panel" data-view-mode="{{ viz.view_mode.param_value() }}">
     <header>
         <div>
-            <h3>3D LCH axes</h3>
-            <p>Drag to rotate, scroll to zoom. Toggle overlays to compare sampled OKLCH vs classic LCH clouds.</p>
+            <h3>Secondary 3D sample cloud</h3>
+            <p>Use after reading the maps above—drag to rotate, scroll to zoom, and toggle sampled OKLCH vs classic LCH point clouds.</p>
         </div>
         <div class="space-legend">
             {% for panel in viz.panels %}

@@ -14,7 +14,6 @@ const MAX_LIGHTNESS: f64 = 1.0;
 const MAX_CHROMA: f64 = 0.4;
 const MAX_HUE: f64 = 360.0;
 const LCH_C_SCALE: f64 = 150.0;
-const SLICE_CELL: usize = 24;
 
 #[tokio::main]
 async fn main() {
@@ -250,25 +249,10 @@ impl ModeOutputs {
 }
 
 #[derive(Clone)]
-struct ModeSlices {
-    lc_slice: SliceData,
-    ch_slice: SliceData,
-}
-
-impl ModeSlices {
-    fn new(params: ColorParams) -> Self {
-        let lc_slice = build_lc_slice(params);
-        let ch_slice = build_ch_slice(params);
-        Self { lc_slice, ch_slice }
-    }
-}
-
-#[derive(Clone)]
 struct ModePanelData {
     mode: ColorMode,
     params: ColorParams,
     outputs: ModeOutputs,
-    slices: ModeSlices,
 }
 
 impl ModePanelData {
@@ -279,7 +263,6 @@ impl ModePanelData {
             mode,
             params,
             outputs: ModeOutputs::new(params),
-            slices: ModeSlices::new(params),
         }
     }
 
@@ -388,58 +371,26 @@ impl VisualizationContext {
     fn active_outputs(&self) -> &ModeOutputs {
         &self.active_panel().outputs
     }
-}
 
-#[derive(Clone)]
-struct SliceData {
-    cells: Vec<SliceCell>,
-    horizontal_labels: Vec<String>,
-    width: usize,
-    height: usize,
-    cell: usize,
-    title: &'static str,
-    subtitle: String,
-}
-
-impl SliceData {
-    fn new(
-        colors: Vec<Vec<String>>,
-        horizontal_labels: Vec<String>,
-        cell: usize,
-        title: &'static str,
-        subtitle: String,
-    ) -> Self {
-        let columns = horizontal_labels.len().max(1);
-        let rows = colors.len().max(1);
-        let width = columns * cell;
-        let height = rows * cell;
-        let mut cells = Vec::new();
-        for (row_index, row) in colors.iter().enumerate() {
-            for (col_index, color) in row.iter().enumerate() {
-                cells.push(SliceCell {
-                    x: col_index * cell,
-                    y: row_index * cell,
-                    color: color.clone(),
-                });
-            }
-        }
-        Self {
-            cells,
-            horizontal_labels,
-            width,
-            height,
-            cell,
-            title,
-            subtitle,
-        }
+    fn max_lightness(&self) -> f64 {
+        MAX_LIGHTNESS
     }
-}
 
-#[derive(Clone)]
-struct SliceCell {
-    x: usize,
-    y: usize,
-    color: String,
+    fn max_chroma(&self) -> f64 {
+        MAX_CHROMA
+    }
+
+    fn max_hue(&self) -> f64 {
+        MAX_HUE
+    }
+
+    fn max_lch_chroma(&self) -> f64 {
+        MAX_CHROMA * LCH_C_SCALE
+    }
+
+    fn max_lch_chroma_display(&self) -> String {
+        format!("{:.0}", self.max_lch_chroma())
+    }
 }
 
 #[derive(Serialize)]
@@ -616,62 +567,6 @@ fn relative_luminance(color: &Color) -> f64 {
     0.2126 * expand(color.r) + 0.7152 * expand(color.g) + 0.0722 * expand(color.b)
 }
 
-fn build_lc_slice(params: ColorParams) -> SliceData {
-    let l_values = sample_range(0.05, 0.95, 9);
-    let c_values = sample_range(0.0, MAX_CHROMA, 9);
-    let mut colors = Vec::new();
-    for &l in l_values.iter().rev() {
-        let mut row = Vec::new();
-        for &c in &c_values {
-            let sample = ColorParams {
-                l,
-                c,
-                h: params.h,
-                mode: params.mode,
-            };
-            row.push(sample.css_color());
-        }
-        colors.push(row);
-    }
-
-    let horizontal_labels = c_values.iter().map(|v| format!("{:.2}", v)).collect();
-    SliceData::new(
-        colors,
-        horizontal_labels,
-        SLICE_CELL,
-        "L vs C slice",
-        format!("Hue {:.0}°", params.h),
-    )
-}
-
-fn build_ch_slice(params: ColorParams) -> SliceData {
-    let c_values = sample_range(0.0, MAX_CHROMA, 9);
-    let h_values: Vec<f64> = (0..=360).step_by(30).map(|h| h as f64).collect();
-    let mut colors = Vec::new();
-    for &c in c_values.iter().rev() {
-        let mut row = Vec::new();
-        for &h in &h_values {
-            let sample = ColorParams {
-                l: params.l,
-                c,
-                h,
-                mode: params.mode,
-            };
-            row.push(sample.css_color());
-        }
-        colors.push(row);
-    }
-
-    let horizontal_labels = h_values.iter().map(|v| format!("{:.0}", v)).collect();
-    SliceData::new(
-        colors,
-        horizontal_labels,
-        SLICE_CELL,
-        "C vs H slice",
-        format!("Lightness {:.2}", params.l),
-    )
-}
-
 fn build_plot_payload(panels: &[ModePanelData]) -> String {
     let datasets = [ColorMode::Oklch, ColorMode::Lch]
         .into_iter()
@@ -725,12 +620,4 @@ fn build_point_cloud(mode: ColorMode) -> Vec<VizPoint> {
         }
     }
     points
-}
-
-fn sample_range(start: f64, end: f64, steps: usize) -> Vec<f64> {
-    if steps <= 1 {
-        return vec![end];
-    }
-    let step = (end - start) / (steps as f64 - 1.0);
-    (0..steps).map(|i| start + step * i as f64).collect()
 }
