@@ -1,84 +1,65 @@
-<div id="swatch-meta" data-hex="{% match outputs.hex %}{% when Some with (hex) %}{{ hex }}{% when None %}{% endmatch %}" data-css="{{ outputs.active_css }}" hidden></div>
-<div class="preview-grid">
-    <div>
-        <div class="swatch" style="background: {{ params.css_color() }};"></div>
-        <div class="mode-pill">
-            <strong>{{ params.mode.label() }}</strong>
-            <small>{{ params.mode.description() }}</small>
-        </div>
-        <div class="value-grid" aria-label="Current slider values">
+<div class="swatch-board" data-view-mode="{{ viz.view_mode.param_value() }}">
+    {% for panel in viz.panels %}
+    <article class="swatch-card" data-panel="{% if panel.mode.param_value() == viz.active_mode.param_value() %}primary{% else %}secondary{% endif %}" data-mode="{{ panel.mode.param_value() }}">
+        <header>
             <div>
-                <small>L</small>
-                <span>{{ params.l_display() }}</span>
+                <strong>{{ panel.mode.label() }}</strong>
+                <p>{{ panel.mode.description() }}</p>
+            </div>
+            <span class="mode-pill {% if panel.mode.param_value() == "oklch" %}oklch{% else %}lch{% endif %}">
+                {% if panel.mode.param_value() == viz.active_mode.param_value() %}Active{% else %}Reference{% endif %}
+            </span>
+        </header>
+        <div class="swatch" style="background: {{ panel.outputs.css }};"></div>
+        <div class="coordinate-row" aria-label="LCH coordinates">
+            <div>
+                <small>Lightness</small>
+                <strong>{{ panel.params.l_display() }}</strong>
             </div>
             <div>
-                <small>C</small>
-                <span>{{ params.c_display() }}</span>
+                <small>Chroma {{ panel.chroma_note() }}</small>
+                <strong>{{ panel.chroma_value_display() }}</strong>
             </div>
             <div>
-                <small>H</small>
-                <span>{{ params.h_display() }}</span>
+                <small>Hue</small>
+                <strong>{{ panel.params.h_display() }}°</strong>
             </div>
         </div>
-    </div>
-
-    <div class="output-panel">
-        <h2>Color formats</h2>
-        <div class="output-line">
-            <span>Active mode</span>
-            <code id="active-css">{{ outputs.active_css }}</code>
-            <button type="button" class="copy-button" data-copy-target="#active-css">Copy</button>
+        <div class="css-line">
+            <code id="{{ panel.css_dom_id() }}">{{ panel.outputs.css }}</code>
+            <button type="button" class="copy-button" data-copy-target="#{{ panel.css_dom_id() }}">Copy</button>
         </div>
-        <div class="output-line">
-            <span>oklch()</span>
-            <code id="oklch-css">{{ outputs.oklch_css }}</code>
-            <button type="button" class="copy-button" data-copy-target="#oklch-css">Copy</button>
+        <div class="format-panel" data-panel="{{ panel.mode.param_value() }}">
+            <div class="format-block">
+                <span>Hex</span>
+                {% match panel.outputs.hex %}
+                {% when Some with (hex) %}
+                <code>{{ hex }}</code>
+                {% when None %}
+                <code>Out of sRGB gamut</code>
+                {% endmatch %}
+            </div>
+            <div class="format-block">
+                <span>rgb()</span>
+                {% match panel.outputs.rgb %}
+                {% when Some with (rgb) %}
+                <code>{{ rgb }}</code>
+                {% when None %}
+                <code>Unavailable</code>
+                {% endmatch %}
+            </div>
+            <div class="format-block">
+                <span>hsl()</span>
+                {% match panel.outputs.hsl %}
+                {% when Some with (hsl) %}
+                <code>{{ hsl }}</code>
+                {% when None %}
+                <code>Unavailable</code>
+                {% endmatch %}
+            </div>
         </div>
-        <div class="output-line">
-            <span>lch()</span>
-            <code id="lch-css">{{ outputs.lch_css }}</code>
-            <button type="button" class="copy-button" data-copy-target="#lch-css">Copy</button>
-        </div>
-        {% match outputs.hex %}
-        {% when Some with (hex) %}
-        <div class="output-line">
-            <span>hex</span>
-            <code id="hex-css">{{ hex }}</code>
-            <button type="button" class="copy-button" data-copy-target="#hex-css">Copy</button>
-        </div>
-        {% when None %}
-        <div class="output-line">
-            <span>hex</span>
-            <code>Unavailable (out of sRGB gamut)</code>
-        </div>
-        {% endmatch %}
-        {% match outputs.rgb %}
-        {% when Some with (rgb) %}
-        <div class="output-line">
-            <span>rgb()</span>
-            <code id="rgb-css">{{ rgb }}</code>
-            <button type="button" class="copy-button" data-copy-target="#rgb-css">Copy</button>
-        </div>
-        {% when None %}
-        <div class="output-line">
-            <span>rgb()</span>
-            <code>Unavailable</code>
-        </div>
-        {% endmatch %}
-        {% match outputs.hsl %}
-        {% when Some with (hsl) %}
-        <div class="output-line">
-            <span>hsl()</span>
-            <code id="hsl-css">{{ hsl }}</code>
-            <button type="button" class="copy-button" data-copy-target="#hsl-css">Copy</button>
-        </div>
-        {% when None %}
-        <div class="output-line">
-            <span>hsl()</span>
-            <code>Unavailable</code>
-        </div>
-        {% endmatch %}
-    </div>
+    </article>
+    {% endfor %}
 </div>
 
 <section class="contrast-grid">
@@ -86,8 +67,8 @@
         <h3>Swatch as background</h3>
         {% match contrast.swatch_as_background %}
         {% when Some with (summary) %}
-        <div class="contrast-ratio" aria-label="Contrast ratio">{{ summary.ratio_display() }}</div>
-        <div class="contrast-sample" style="color: {{ fg_color }}; background: {{ params.css_color() }};">Aa</div>
+        <div class="contrast-ratio">{{ summary.ratio_display() }}</div>
+        <div class="contrast-sample" style="color: {{ fg_color }}; background: {{ viz.active_outputs().css }};">Aa</div>
         <div class="badge-row">
             <span class="badge {% if summary.aa_normal %}pass{% else %}fail{% endif %}">AA</span>
             <span class="badge {% if summary.aaa_normal %}pass{% else %}fail{% endif %}">AAA</span>
@@ -97,14 +78,14 @@
         {% when None %}
         <p>Contrast unavailable for this selection.</p>
         {% endmatch %}
-        <small>Foreground picker controls the text color in this block.</small>
+        <small>Foreground picker controls the text color.</small>
     </article>
     <article class="contrast-card">
         <h3>Swatch as text</h3>
         {% match contrast.swatch_as_foreground %}
         {% when Some with (summary) %}
         <div class="contrast-ratio">{{ summary.ratio_display() }}</div>
-        <div class="contrast-sample" style="color: {{ params.css_color() }}; background: {{ bg_color }};">Aa</div>
+        <div class="contrast-sample" style="color: {{ viz.active_outputs().css }}; background: {{ bg_color }};">Aa</div>
         <div class="badge-row">
             <span class="badge {% if summary.aa_normal %}pass{% else %}fail{% endif %}">AA</span>
             <span class="badge {% if summary.aaa_normal %}pass{% else %}fail{% endif %}">AAA</span>
@@ -114,53 +95,72 @@
         {% when None %}
         <p>Contrast unavailable for this selection.</p>
         {% endmatch %}
-        <small>Background picker controls the sample background.</small>
+        <small>Background picker controls the sample surface.</small>
     </article>
 </section>
 
-<section class="viz-section">
-    <article class="slice-card">
-        <h3>{{ viz.lc_slice.title }}</h3>
-        <small>{{ viz.lc_slice.subtitle }}</small>
-        <svg class="slice-svg" viewBox="0 0 {{ viz.lc_slice.width }} {{ viz.lc_slice.height }}" width="{{ viz.lc_slice.width }}" height="{{ viz.lc_slice.height }}" role="img" aria-label="{{ viz.lc_slice.title }}">
-            {% for cell in viz.lc_slice.cells %}
-            <rect x="{{ cell.x }}" y="{{ cell.y }}" width="{{ viz.lc_slice.cell }}" height="{{ viz.lc_slice.cell }}" fill="{{ cell.color }}"></rect>
-            {% endfor %}
-        </svg>
-        <div class="axis-labels">
-            {% for label in viz.lc_slice.horizontal_labels %}
-            <span>{{ label }}</span>
-            {% endfor %}
+<section class="viz-matrix" data-view-mode="{{ viz.view_mode.param_value() }}">
+    {% for panel in viz.panels %}
+    <article class="slice-card" data-panel="{% if panel.mode.param_value() == viz.active_mode.param_value() %}primary{% else %}secondary{% endif %}">
+        <header>
+            <div>
+                <h3>{{ panel.mode.label() }} slices</h3>
+                <small>{{ panel.mode.description() }}</small>
+            </div>
+        </header>
+        <div class="slice-stack">
+            <div>
+                <strong>{{ panel.slices.lc_slice.title }}</strong>
+                <small>{{ panel.slices.lc_slice.subtitle }}</small>
+                <svg class="slice-svg" viewBox="0 0 {{ panel.slices.lc_slice.width }} {{ panel.slices.lc_slice.height }}" width="{{ panel.slices.lc_slice.width }}" height="{{ panel.slices.lc_slice.height }}" role="img" aria-label="{{ panel.slices.lc_slice.title }}">
+                    {% for cell in panel.slices.lc_slice.cells %}
+                    <rect x="{{ cell.x }}" y="{{ cell.y }}" width="{{ panel.slices.lc_slice.cell }}" height="{{ panel.slices.lc_slice.cell }}" fill="{{ cell.color }}"></rect>
+                    {% endfor %}
+                </svg>
+                <div class="axis-labels">
+                    {% for label in panel.slices.lc_slice.horizontal_labels %}
+                    <span>{{ label }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div>
+                <strong>{{ panel.slices.ch_slice.title }}</strong>
+                <small>{{ panel.slices.ch_slice.subtitle }}</small>
+                <svg class="slice-svg" viewBox="0 0 {{ panel.slices.ch_slice.width }} {{ panel.slices.ch_slice.height }}" width="{{ panel.slices.ch_slice.width }}" height="{{ panel.slices.ch_slice.height }}" role="img" aria-label="{{ panel.slices.ch_slice.title }}">
+                    {% for cell in panel.slices.ch_slice.cells %}
+                    <rect x="{{ cell.x }}" y="{{ cell.y }}" width="{{ panel.slices.ch_slice.cell }}" height="{{ panel.slices.ch_slice.cell }}" fill="{{ cell.color }}"></rect>
+                    {% endfor %}
+                </svg>
+                <div class="axis-labels">
+                    {% for label in panel.slices.ch_slice.horizontal_labels %}
+                    <span>{{ label }}</span>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </article>
-    <article class="slice-card">
-        <h3>{{ viz.ch_slice.title }}</h3>
-        <small>{{ viz.ch_slice.subtitle }}</small>
-        <svg class="slice-svg" viewBox="0 0 {{ viz.ch_slice.width }} {{ viz.ch_slice.height }}" width="{{ viz.ch_slice.width }}" height="{{ viz.ch_slice.height }}" role="img" aria-label="{{ viz.ch_slice.title }}">
-            {% for cell in viz.ch_slice.cells %}
-            <rect x="{{ cell.x }}" y="{{ cell.y }}" width="{{ viz.ch_slice.cell }}" height="{{ viz.ch_slice.cell }}" fill="{{ cell.color }}"></rect>
-            {% endfor %}
-        </svg>
-        <div class="axis-labels">
-            {% for label in viz.ch_slice.horizontal_labels %}
-            <span>{{ label }}</span>
+    {% endfor %}
+</section>
+
+<section class="space-panel" data-view-mode="{{ viz.view_mode.param_value() }}">
+    <header>
+        <div>
+            <h3>3D LCH axes</h3>
+            <p>Drag to rotate, scroll to zoom. Toggle overlays to compare sampled OKLCH vs classic LCH clouds.</p>
+        </div>
+        <div class="space-legend">
+            {% for panel in viz.panels %}
+            <label class="legend-chip" data-panel="{{ panel.mode.param_value() }}">
+                <input type="checkbox" data-surface-toggle value="{{ panel.mode.param_value() }}" {% if viz.view_mode.is_compare() || panel.mode.param_value() == viz.active_mode.param_value() %}checked{% endif %}>
+                <span class="dot" style="background: {% if panel.mode.param_value() == "oklch" %}var(--ok-accent){% else %}var(--lch-accent){% endif %};"></span>
+                <span>{{ panel.mode.label() }}</span>
+            </label>
             {% endfor %}
         </div>
-    </article>
-    <article class="space-card">
-        <h3>3D LCH axes</h3>
-        <p>Explore the sampled space with actual H/L/C axes. Drag to rotate, scroll to zoom, and track how your current selection lands inside the volume.</p>
-        <canvas
-            id="space-canvas"
-            width="640"
-            height="300"
-            data-mode="{{ params.mode.param_value() }}"
-            data-selected-l="{{ params.l }}"
-            data-selected-c="{{ params.c }}"
-            data-selected-h="{{ params.h }}"
-            data-selected-css="{{ params.css_color() }}"
-            aria-label="Interactive 3D plot of the LCH space"
-        ></canvas>
-        <script id="viz-points" type="application/json">{{ viz.points_json|safe }}</script>
-    </article>
+    </header>
+    <div class="space-surface">
+        <canvas id="space-canvas" width="640" height="320" aria-label="Interactive 3D plot"></canvas>
+        <script id="space-data" type="application/json">{{ viz.plot_json|safe }}</script>
+    </div>
+    <div class="space-badges" id="space-badges"></div>
 </section>

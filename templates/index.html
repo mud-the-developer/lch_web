@@ -8,409 +8,519 @@
     <style>
         :root {
             font-family: "Inter", "SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            color: #e6edf7;
-            background: #0b1220;
+            color: #f8fafc;
+            background-color: #030712;
+            --glass: rgba(3, 7, 18, 0.75);
+            --glass-strong: rgba(5, 8, 19, 0.9);
+            --border: rgba(148, 163, 184, 0.28);
+            --muted: #94a3b8;
+            --ok-accent: #8b5cf6;
+            --lch-accent: #f472b6;
+            --surface: rgba(15, 23, 42, 0.55);
+            --grid: rgba(148, 163, 184, 0.1);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
         }
 
         body {
             margin: 0;
-            padding: 2rem 1rem 4rem;
-            display: flex;
-            justify-content: center;
+            min-height: 100vh;
+            color: inherit;
             background:
-              linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(14, 165, 233, 0.03) 45%, rgba(99, 102, 241, 0.14) 100%),
-              linear-gradient(0deg, rgba(255,255,255,0.05) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px),
-              #0b1220;
-            background-size: auto, 36px 36px, 36px 36px, auto;
+                radial-gradient(circle at 20% 20%, rgba(79, 70, 229, 0.25), transparent 45%),
+                radial-gradient(circle at 80% 10%, rgba(14, 165, 233, 0.2), transparent 40%),
+                linear-gradient(135deg, #020617 0%, #0f172a 60%, #020617 100%);
+            padding: 0 1rem;
         }
 
-        main {
-            width: min(960px, 100%);
+        .shell {
+            width: min(1160px, 100%);
+            margin: 0 auto;
+            padding: 2.5rem 0 4rem;
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
         }
 
-        .page-intro {
-            background: rgba(15, 23, 42, 0.55);
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            border-radius: 16px;
-            padding: 1.75rem;
-            box-shadow: 0 12px 40px rgba(2, 6, 23, 0.35);
-            backdrop-filter: blur(10px);
+        .glass {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            box-shadow: 0 25px 50px rgba(2, 6, 23, 0.65);
+            backdrop-filter: blur(20px);
+        }
+
+        .hero {
+            padding: 2.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .eyebrow {
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.35em;
+            font-size: 0.78rem;
+            color: var(--muted);
         }
 
         h1 {
-            margin: 0 0 0.5rem;
-            font-size: clamp(1.75rem, 4vw, 2.6rem);
+            margin: 0;
+            font-size: clamp(2rem, 4vw, 3rem);
+            letter-spacing: -0.01em;
         }
 
-        p {
-            margin: 0.3rem 0 0;
-            line-height: 1.5;
+        .hero p {
+            margin: 0;
+            color: rgba(226, 232, 240, 0.85);
+            max-width: 60ch;
+            line-height: 1.6;
         }
 
-        .card {
-            background: rgba(15, 23, 42, 0.52);
-            border: 1px solid rgba(148, 163, 184, 0.24);
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: 0 12px 32px rgba(2, 6, 23, 0.28);
-            backdrop-filter: blur(10px);
+        .preset-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
         }
 
-        .preset-list {
+        .preset-chip {
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(15, 23, 42, 0.4);
+            color: inherit;
+            padding: 0.4rem 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+
+        .preset-chip:hover,
+        .preset-chip:focus-visible {
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(99, 102, 241, 0.15);
+        }
+
+        form#controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .control-panel {
+            padding: 1.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+
+        .control-panel.is-dual {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .control-panel h2 {
+            margin: 0;
+            font-size: 1.15rem;
+        }
+
+        .control-panel p {
+            margin: 0.35rem 0 0;
+            color: rgba(226, 232, 240, 0.85);
+            font-size: 0.95rem;
+        }
+
+        .pill-toggle {
             display: flex;
             flex-wrap: wrap;
             gap: 0.6rem;
         }
 
-        .preset-chip {
-            border: 1px solid #d6e0ff;
-            background: #eef2ff;
+        .pill-toggle label {
             border-radius: 999px;
-            padding: 0.45rem 1rem;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: background 0.15s ease;
-        }
-
-        .preset-chip:hover,
-        .preset-chip:focus-visible {
-            background: #d9e3ff;
-        }
-
-        form {
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem;
-        }
-
-        .mode-toggle {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        .mode-options {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.8rem;
-        }
-
-        .mode-chip {
-            border: 1px solid #d7dce8;
-            border-radius: 999px;
-            padding: 0.5rem 1rem;
-            display: flex;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            padding: 0.35rem 0.85rem;
+            display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.45rem;
             cursor: pointer;
             font-weight: 600;
+            background: rgba(15, 23, 42, 0.55);
         }
 
-        .mode-chip input {
-            accent-color: #4f46e5;
-        }
-
-        .mode-note {
-            font-size: 0.9rem;
-            color: #9fb1cc;
+        .pill-toggle input {
+            accent-color: #6366f1;
         }
 
         .slider-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.2rem;
         }
 
         label.slider {
             display: flex;
             flex-direction: column;
-            gap: 0.6rem;
+            gap: 0.75rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 1rem;
             font-weight: 600;
         }
 
-        .slider span {
-            font-size: 0.9rem;
-            color: #a9b8d0;
+        .slider-header span {
+            font-size: 0.85rem;
+            color: var(--muted);
         }
 
         .track-preview {
-            height: 14px;
+            height: 16px;
             border-radius: 999px;
             border: 1px solid rgba(148, 163, 184, 0.3);
-            box-shadow: inset 0 1px 2px rgba(0,0,0,0.35);
-            margin-bottom: 0.2rem;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.6);
         }
 
         input[type="range"] {
             width: 100%;
         }
 
-        .color-panel {
+        .color-pickers {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 1rem;
-            align-items: start;
         }
 
-        .color-input {
+        .color-pickers label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            font-weight: 600;
+        }
+
+        .color-pickers small {
+            display: block;
+            margin-top: 0.35rem;
+            color: rgba(226, 232, 240, 0.75);
+        }
+
+        .color-pickers input[type="color"] {
+            width: 64px;
+            height: 36px;
+            border: none;
+            background: transparent;
+        }
+
+        .preview-surface {
+            padding: 2rem;
             display: flex;
             flex-direction: column;
-            gap: 0.4rem;
+            gap: 1.5rem;
+            background: var(--glass-strong);
         }
 
-        .color-input label {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-        }
-
-        .color-input input[type="color"] {
-            width: 56px;
-            height: 34px;
-            border: none;
-            padding: 0;
-            background: none;
-        }
-
-        .color-input button {
-            align-self: flex-start;
-            border: 1px dashed #d5d9e3;
-            background: transparent;
-            border-radius: 8px;
-            padding: 0.2rem 0.6rem;
-            font-size: 0.85rem;
-            cursor: pointer;
-        }
-
-        .color-panel small {
-            font-size: 0.85rem;
-            color: #9fb1cc;
-        }
-
-        .preview-card {
-            background: rgba(15, 23, 42, 0.58);
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            border-radius: 20px;
-            padding: 1.5rem;
-            box-shadow: 0 20px 45px rgba(2, 6, 23, 0.36);
-            backdrop-filter: blur(10px);
-        }
-
-        .preview-grid {
+        .swatch-board,
+        .viz-matrix {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
+            gap: 1.25rem;
+        }
+
+        .swatch-card,
+        .slice-card,
+        .space-panel,
+        .format-panel,
+        .contrast-card {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 1.25rem;
+            background: rgba(15, 23, 42, 0.65);
+        }
+
+        .swatch-card header,
+        .slice-card header,
+        .space-panel header,
+        .format-panel header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .swatch-card header p {
+            margin: 0.35rem 0 0;
+            color: rgba(226, 232, 240, 0.8);
+            font-size: 0.9rem;
+        }
+
+        .mode-pill {
+            padding: 0.2rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .mode-pill.oklch {
+            border: 1px solid rgba(139, 92, 246, 0.5);
+        }
+
+        .mode-pill.lch {
+            border: 1px solid rgba(244, 114, 182, 0.5);
         }
 
         .swatch {
             border-radius: 18px;
             height: 220px;
-            border: 1px solid rgba(0, 0, 0, 0.08);
+            margin: 1rem 0;
+            border: 1px solid rgba(0, 0, 0, 0.15);
         }
 
-        .value-grid {
+        .coordinate-row {
             display: flex;
-            gap: 1rem;
-            margin-top: 1rem;
+            justify-content: space-between;
+            gap: 0.75rem;
             font-family: "JetBrains Mono", "Fira Mono", monospace;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
-        .value-grid div {
+        .coordinate-row div {
+            flex: 1;
             display: flex;
             flex-direction: column;
             gap: 0.2rem;
         }
 
-        .value-grid span {
-            font-size: 1.1rem;
+        .coordinate-row small {
+            color: rgba(226, 232, 240, 0.66);
         }
 
-        .mode-pill {
-            margin-top: 1rem;
-            padding: 0.6rem 0.9rem;
-            background: rgba(99,102,241,0.18);
-            border: 1px solid rgba(129,140,248,0.35);
-            border-radius: 999px;
-            display: inline-flex;
-            flex-direction: column;
-            gap: 0.15rem;
-        }
-
-        .mode-pill small {
-            font-size: 0.8rem;
-            color: #c7d2fe;
-        }
-
-        .output-panel h2 {
-            margin: 0 0 0.8rem;
-            font-size: 1.15rem;
-        }
-
-        .output-line {
+        .css-line {
+            margin-top: 0.85rem;
             display: flex;
-            gap: 0.6rem;
             align-items: center;
-            margin-bottom: 0.4rem;
+            gap: 0.75rem;
             font-family: "JetBrains Mono", "Fira Mono", monospace;
-            font-size: 0.9rem;
-            background: rgba(30,41,59,0.75);
-            border: 1px solid rgba(148,163,184,0.24);
-            padding: 0.5rem 0.7rem;
-            border-radius: 10px;
+            font-size: 0.85rem;
         }
 
-        .output-line code {
+        .css-line code {
             flex: 1;
-            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            border: none;
-            background: none;
+            white-space: nowrap;
         }
 
         .copy-button {
-            border: 1px solid rgba(129,140,248,0.45);
-            background: rgba(15,23,42,0.85);
-            color: #dbeafe;
             border-radius: 8px;
-            padding: 0.25rem 0.65rem;
-            font-size: 0.85rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(15, 23, 42, 0.8);
+            color: inherit;
+            font-size: 0.8rem;
+            padding: 0.35rem 0.65rem;
             cursor: pointer;
         }
 
+        .format-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .format-block {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            font-family: "JetBrains Mono", "Fira Mono", monospace;
+            font-size: 0.85rem;
+        }
+
+        .format-block span {
+            color: rgba(226, 232, 240, 0.75);
+        }
+
         .contrast-grid {
-            margin-top: 1.5rem;
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
             gap: 1rem;
         }
 
-        .contrast-card {
-            border: 1px solid #e2e6f4;
-            border-radius: 16px;
-            padding: 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-        }
-
         .contrast-sample {
-            border-radius: 12px;
-            padding: 1rem;
-            font-size: 1.4rem;
+            border-radius: 16px;
+            padding: 1.1rem;
+            font-size: 1.5rem;
             text-align: center;
             font-weight: 600;
+            border: 1px solid rgba(15, 23, 42, 0.6);
         }
 
         .contrast-ratio {
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             font-weight: 600;
         }
 
         .badge-row {
             display: flex;
-            gap: 0.3rem;
+            gap: 0.4rem;
             flex-wrap: wrap;
         }
 
         .badge {
             border-radius: 999px;
-            padding: 0.1rem 0.6rem;
+            padding: 0.1rem 0.7rem;
             font-size: 0.75rem;
             font-weight: 600;
         }
 
         .badge.pass {
-            background: #dcfce7;
-            color: #15803d;
+            background: rgba(74, 222, 128, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(74, 222, 128, 0.5);
         }
 
         .badge.fail {
-            background: #fee2e2;
-            color: #b91c1c;
-        }
-
-        .viz-section {
-            margin-top: 2rem;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
+            background: rgba(248, 113, 113, 0.1);
+            color: #f87171;
+            border: 1px solid rgba(248, 113, 113, 0.4);
         }
 
         .slice-card {
-            border: 1px solid #e4e7f1;
-            border-radius: 18px;
-            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
         }
 
-        .slice-card h3 {
-            margin: 0 0 0.3rem;
-            font-size: 1rem;
+        .slice-card header {
+            flex-direction: column;
+            align-items: flex-start;
         }
 
         .slice-card small {
-            color: #5d6a7f;
+            color: rgba(226, 232, 240, 0.75);
         }
 
         .slice-svg {
             width: 100%;
             height: auto;
-            border-radius: 12px;
-            overflow: hidden;
-            display: block;
-            margin: 0.6rem 0;
-            background: rgba(15,23,42,0.8);
+            border-radius: 16px;
             border: 1px solid rgba(148,163,184,0.25);
+            display: block;
+            background: rgba(2, 6, 23, 0.85);
         }
 
         .axis-labels {
             display: flex;
             justify-content: space-between;
             font-size: 0.75rem;
-            color: #6b7280;
+            color: rgba(226, 232, 240, 0.7);
         }
 
-        .space-card {
-            grid-column: 1 / -1;
-            border: 1px solid #dde2f7;
-            border-radius: 20px;
-            padding: 1.2rem;
+        .space-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .space-panel header {
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .space-panel header p {
+            color: rgba(226, 232, 240, 0.75);
+            margin: 0;
+        }
+
+        .space-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+        }
+
+        .legend-chip {
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            padding: 0.35rem 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            background: rgba(15, 23, 42, 0.65);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .legend-chip .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            display: inline-block;
+        }
+
+        .space-surface {
+            position: relative;
         }
 
         #space-canvas {
             width: 100%;
-            height: 260px;
-            border-radius: 14px;
-            border: 1px solid rgba(148,163,184,0.25);
-            background: radial-gradient(circle at top, rgba(99,102,241,0.22), rgba(15,23,42,0.9));
+            height: 300px;
+            border-radius: 20px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: radial-gradient(circle at top, rgba(99,102,241,0.18), rgba(15,23,42,0.85));
             cursor: grab;
+            touch-action: none;
         }
 
         #space-canvas.is-dragging {
             cursor: grabbing;
         }
 
-        @media (max-width: 720px) {
-            .value-grid {
+        .space-badges {
+            margin-top: 0.75rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+        }
+
+        .space-badge {
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            background: rgba(15, 23, 42, 0.7);
+        }
+
+        .space-badge.is-muted {
+            opacity: 0.45;
+        }
+
+        [data-view-mode="single"] [data-panel="secondary"] {
+            display: none;
+        }
+
+        @media (max-width: 640px) {
+            .coordinate-row {
                 flex-direction: column;
             }
         }
     </style>
 </head>
 <body>
-<main>
-    <section class="page-intro">
-        <h1>LCH Lab</h1>
-        <p>Blend OKLCH and classic LCH workflows in a single Axum + Askama + HTMX playground. Shareable URLs keep slider state, and every update streams through HTMX without custom endpoints.</p>
+<main class="shell">
+    <section class="hero glass">
+        <p class="eyebrow">Color Systems</p>
+        <h1>OKLCH + classic LCH exploration lab</h1>
+        <p>Blend CSS Color 4's perceptual OKLCH with a CIELAB-inspired LCH approximation. Toggle comparison mode to see the models side-by-side, keep slider state in the URL, and preview slices + a shared 3D plot without heavy frameworks.</p>
     </section>
 
-    <div class="preset-list" aria-label="Preset colors">
+    <div class="preset-row" aria-label="Preset colors">
         {% for preset in presets %}
         <button type="button" class="preset-chip" data-preset data-l="{{ preset.l }}" data-c="{{ preset.c }}" data-h="{{ preset.h }}">
             {{ preset.name }}
@@ -419,44 +529,56 @@
     </div>
 
     <form id="controls" hx-get="/preview" hx-target="#preview" hx-trigger="input change" hx-swap="innerHTML">
-        <section class="card mode-toggle">
+        <section class="control-panel is-dual glass">
             <div>
-                <h2>Mode</h2>
-                <p class="mode-note">Toggle between perceptual OKLCH and a CIELAB-inspired approximation. Values clamp to this playground's supported ranges for stability.</p>
+                <h2>Active model</h2>
+                <p>Switch between perceptually uniform OKLCH and classic LCH to drive the sliders.</p>
+                <div class="pill-toggle" role="group" aria-label="Color model mode">
+                    <label>
+                        <input type="radio" name="mode" value="oklch" {% if params.mode.param_value() == "oklch" %}checked{% endif %}>
+                        <span>OKLCH</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="mode" value="lch" {% if params.mode.param_value() == "lch" %}checked{% endif %}>
+                        <span>Classic LCH</span>
+                    </label>
+                </div>
             </div>
-            <div class="mode-options">
-                <label class="mode-chip">
-                    <input type="radio" name="mode" value="oklch" {% if params.mode.param_value() == "oklch" %}checked{% endif %}>
-                    <span>OKLCH</span>
-                </label>
-                <label class="mode-chip">
-                    <input type="radio" name="mode" value="lch" {% if params.mode.param_value() == "lch" %}checked{% endif %}>
-                    <span>Classic LCH</span>
-                </label>
+            <div>
+                <h2>Comparison mode</h2>
+                <p>Render a single model or compare both systems in parallel (slices + 3D).</p>
+                <div class="pill-toggle" role="group" aria-label="Comparison mode">
+                    <label>
+                        <input type="radio" name="view" value="single" {% if viz.view_mode.param_value() == "single" %}checked{% endif %}>
+                        <span>Single</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="view" value="compare" {% if viz.view_mode.param_value() == "compare" %}checked{% endif %}>
+                        <span>Compare</span>
+                    </label>
+                </div>
             </div>
         </section>
 
-        <section class="card slider-grid">
+        <section class="control-panel glass slider-grid">
             <label class="slider">
-                <div>
+                <div class="slider-header">
                     <strong>Lightness L</strong>
                     <span>0.0 – 1.0</span>
                 </div>
                 <div class="track-preview" data-track="l"></div>
                 <input type="range" name="l" min="0" max="1" step="0.01" value="{{ params.l }}">
             </label>
-
             <label class="slider">
-                <div>
+                <div class="slider-header">
                     <strong>Chroma C</strong>
-                    <span>0.0 – 0.4 OKLCH scale (≈60 in LCH)</span>
+                    <span>0.0 – 0.4 (≈0-60 LCH)</span>
                 </div>
                 <div class="track-preview" data-track="c"></div>
                 <input type="range" name="c" min="0" max="0.4" step="0.005" value="{{ params.c }}">
             </label>
-
             <label class="slider">
-                <div>
+                <div class="slider-header">
                     <strong>Hue H</strong>
                     <span>0° – 360°</span>
                 </div>
@@ -465,25 +587,25 @@
             </label>
         </section>
 
-        <section class="card color-panel">
-            <div class="color-input">
+        <section class="control-panel glass color-pickers">
+            <div>
                 <label>
-                    <span>Foreground color</span>
+                    <span>Foreground</span>
                     <input type="color" name="fg" value="{{ fg_color }}">
                 </label>
-                <small>Used when testing text on the LCH swatch background.</small>
+                <small>Used as text color on the generated swatch.</small>
             </div>
-            <div class="color-input">
+            <div>
                 <label>
-                    <span>Background color</span>
+                    <span>Background</span>
                     <input type="color" name="bg" value="{{ bg_color }}">
                 </label>
-                <small>Used when testing the swatch as text on another surface.</small>
+                <small>Used behind the swatch when testing text color.</small>
             </div>
         </section>
     </form>
 
-    <section id="preview" class="preview-card" aria-live="polite">
+    <section id="preview" class="preview-surface glass" aria-live="polite">
         {% include "preview.html" %}
     </section>
 </main>
@@ -507,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toCssColor = (lv, cv, hv, mode) => {
         if (mode === 'lch') {
             const lPct = (lv * 100).toFixed(1) + '%';
-            const cLab = (cv * LCH_CHROMA_SCALE).toFixed(2);
+            const cLab = (cv * LCH_CHROMA_SCALE).toFixed(1);
             return `lch(${lPct} ${cLab} ${hv.toFixed(0)})`;
         }
         return `oklch(${lv.toFixed(2)} ${cv.toFixed(3)} ${hv.toFixed(0)})`;
@@ -563,7 +685,6 @@ document.addEventListener('DOMContentLoaded', () => {
             await navigator.clipboard.writeText(text);
             return true;
         }
-
         const textarea = document.createElement('textarea');
         textarea.value = text;
         textarea.style.position = 'fixed';
@@ -592,7 +713,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof teardownSpace === 'function') {
             teardownSpace();
         }
-        teardownSpace = drawLchAxes();
+        teardownSpace = drawSpacePlot();
     };
 
     document.addEventListener('click', async (event) => {
@@ -623,21 +744,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     showCopied(copyBtn);
                 }
             } catch (_) {
-                // ignore
+                // ignore errors
             }
             return;
         }
-
     });
 
     form.addEventListener('input', () => {
         updateTrackPreviews();
         updateUrl();
     });
+
     form.addEventListener('change', () => {
         updateTrackPreviews();
         updateUrl();
     });
+
     document.addEventListener('htmx:afterSwap', (event) => {
         if (event.target.id === 'preview') {
             hydratePointCloud();
@@ -645,9 +767,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const drawLchAxes = () => {
+    const drawSpacePlot = () => {
         const canvas = document.getElementById('space-canvas');
-        const dataNode = document.getElementById('viz-points');
+        const dataNode = document.getElementById('space-data');
+        const legendInputs = Array.from(document.querySelectorAll('[data-surface-toggle]'));
+        const badgeHost = document.getElementById('space-badges');
         if (!canvas || !dataNode) return () => {};
         const ctx = canvas.getContext('2d');
         if (!ctx) return () => {};
@@ -662,40 +786,101 @@ document.addEventListener('DOMContentLoaded', () => {
             return clamp(value / max, 0, 1);
         };
 
-        let samples = [];
+        let payload = { datasets: [], selections: [] };
         try {
-            samples = JSON.parse(dataNode.textContent || '[]');
+            payload = JSON.parse(dataNode.textContent || '{}');
         } catch (_) {
-            samples = [];
+            // fall back to empty payload
         }
 
-        const mode = (canvas.dataset.mode || 'oklch').toLowerCase();
-        const isLchMode = mode === 'lch';
-        const selected = {
-            l: safeNumber(canvas.dataset.selectedL, 0.0),
-            c: safeNumber(canvas.dataset.selectedC, 0.0),
-            h: safeNumber(canvas.dataset.selectedH, 0.0),
-            css: canvas.dataset.selectedCss || '#ffffff',
+        const datasetMap = new Map();
+        (payload.datasets || []).forEach((dataset) => {
+            datasetMap.set(dataset.mode, dataset.points || []);
+        });
+
+        const normalizedPoints = new Map();
+        datasetMap.forEach((points, mode) => {
+            const mapped = points.map((point) => ({
+                x: normalizeValue(point.h, 360),
+                y: clamp(point.l == null ? 0 : point.l, 0, 1),
+                z: normalizeValue(point.c, 0.4),
+                css: point.css,
+            }));
+            normalizedPoints.set(mode, mapped);
+        });
+
+        const modeStyles = {
+            oklch: { stroke: '#c4b5fd', label: 'OKLCH' },
+            lch: { stroke: '#f9a8d4', label: 'Classic LCH' },
         };
 
-        const normalizedPoints = samples.map((point) => ({
-            x: normalizeValue(point.h, 360),
-            y: clamp(point.l == null ? 0 : point.l, 0, 1),
-            z: normalizeValue(point.c, 0.4),
-            css: point.css,
+        const selections = (payload.selections || []).map((selection) => ({
+            mode: selection.mode,
+            label: selection.label,
+            l: safeNumber(selection.l, 0),
+            c: safeNumber(selection.c, 0),
+            h: safeNumber(selection.h, 0),
+            css: selection.css || '#ffffff',
+            normalized: {
+                x: normalizeValue(selection.h, 360),
+                y: clamp(selection.l, 0, 1),
+                z: normalizeValue(selection.c, 0.4),
+            },
         }));
 
-        const selectedNormalized = {
-            x: normalizeValue(selected.h, 360),
-            y: clamp(selected.l, 0, 1),
-            z: normalizeValue(selected.c, 0.4),
+        const enabledModes = new Set(
+            legendInputs.filter((input) => input.checked).map((input) => input.value)
+        );
+
+        const ensureEnabled = () => {
+            if (enabledModes.size === 0 && legendInputs.length) {
+                const fallback = legendInputs[0];
+                fallback.checked = true;
+                enabledModes.add(fallback.value);
+            }
         };
+
+        const updateBadges = () => {
+            if (!badgeHost) return;
+            badgeHost.innerHTML = '';
+            selections.forEach((selection) => {
+                const badge = document.createElement('div');
+                badge.className = 'space-badge';
+                badge.dataset.mode = selection.mode;
+                if (!enabledModes.has(selection.mode)) {
+                    badge.classList.add('is-muted');
+                }
+                const chromaLabel = selection.mode === 'lch'
+                    ? `${Math.round(selection.c * LCH_CHROMA_SCALE)} C`
+                    : selection.c.toFixed(3);
+                badge.innerHTML = `
+                    <div class="badge-label">${selection.label}</div>
+                    <div class="badge-values">L ${selection.l.toFixed(2)} · C ${chromaLabel} · H ${selection.h.toFixed(0)}°</div>
+                `;
+                badgeHost.appendChild(badge);
+            });
+        };
+
+        updateBadges();
+
+        legendInputs.forEach((input) => {
+            input.addEventListener('change', () => {
+                if (input.checked) {
+                    enabledModes.add(input.value);
+                } else {
+                    enabledModes.delete(input.value);
+                }
+                ensureEnabled();
+                updateBadges();
+                render();
+            });
+        });
 
         const pivot = { x: 0.5, y: 0.5, z: 0.5 };
         const state = {
             rotationX: -0.65,
             rotationY: Math.PI / 5,
-            zoom: 1.05,
+            zoom: 1.1,
         };
 
         let width = 0;
@@ -733,11 +918,6 @@ document.addEventListener('DOMContentLoaded', () => {
             render();
         };
 
-        const normalize2d = (x, y) => {
-            const length = Math.hypot(x, y) || 1;
-            return { x: x / length, y: y / length };
-        };
-
         const drawCube = () => {
             const corners = [
                 { x: 0, y: 0, z: 0 },
@@ -750,18 +930,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 { x: 0, y: 1, z: 1 },
             ];
             const edges = [
-                [0, 1],
-                [1, 2],
-                [2, 3],
-                [3, 0],
-                [4, 5],
-                [5, 6],
-                [6, 7],
-                [7, 4],
-                [0, 4],
-                [1, 5],
-                [2, 6],
-                [3, 7],
+                [0, 1], [1, 2], [2, 3], [3, 0],
+                [4, 5], [5, 6], [6, 7], [7, 4],
+                [0, 4], [1, 5], [2, 6], [3, 7],
             ];
             ctx.strokeStyle = 'rgba(148,163,184,0.25)';
             ctx.lineWidth = 1;
@@ -775,11 +946,32 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         };
 
-        const formatChroma = (value) => {
-            if (isLchMode) {
-                return `${Math.round(value * LCH_CHROMA_SCALE)}`;
-            }
-            return value.toFixed(3);
+        const drawGridPlanes = () => {
+            const levels = [0, 0.25, 0.5, 0.75, 1];
+            ctx.strokeStyle = 'rgba(148,163,184,0.12)';
+            levels.forEach((level) => {
+                const corners = [
+                    projectPoint({ x: 0, y: level, z: 0 }),
+                    projectPoint({ x: 1, y: level, z: 0 }),
+                    projectPoint({ x: 1, y: level, z: 1 }),
+                    projectPoint({ x: 0, y: level, z: 1 }),
+                ];
+                ctx.beginPath();
+                corners.forEach((corner, index) => {
+                    if (index === 0) {
+                        ctx.moveTo(corner.x, corner.y);
+                    } else {
+                        ctx.lineTo(corner.x, corner.y);
+                    }
+                });
+                ctx.closePath();
+                ctx.stroke();
+            });
+        };
+
+        const normalize2d = (x, y) => {
+            const length = Math.hypot(x, y) || 1;
+            return { x: x / length, y: y / length };
         };
 
         const drawAxes = () => {
@@ -788,7 +980,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 {
                     dir: { x: 1, y: 0, z: 0 },
                     color: '#fdba74',
-                    label: 'Hue H°',
+                    label: 'Hue (°)',
                     ticks: [0, 90, 180, 270, 360],
                     max: 360,
                     formatter: (value) => `${value.toFixed(0)}°`,
@@ -796,7 +988,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 {
                     dir: { x: 0, y: 1, z: 0 },
                     color: '#86efac',
-                    label: 'Lightness L',
+                    label: 'Lightness',
                     ticks: [0, 0.25, 0.5, 0.75, 1],
                     max: 1,
                     formatter: (value) => value.toFixed(2),
@@ -804,17 +996,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 {
                     dir: { x: 0, y: 0, z: 1 },
                     color: '#93c5fd',
-                    label: `Chroma C (${isLchMode ? 'LCH' : 'OKLCH'})`,
+                    label: 'Chroma (OK units)',
                     ticks: [0, 0.1, 0.2, 0.3, 0.4],
                     max: 0.4,
-                    formatter: (value) => formatChroma(value),
+                    formatter: (value) => value.toFixed(2),
                 },
             ];
 
             axes.forEach((axis) => {
                 const endPoint = projectPoint(axis.dir);
                 ctx.strokeStyle = axis.color;
-                ctx.lineWidth = 1.5;
+                ctx.lineWidth = 1.4;
                 ctx.beginPath();
                 ctx.moveTo(origin.x, origin.y);
                 ctx.lineTo(endPoint.x, endPoint.y);
@@ -831,14 +1023,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         z: axis.dir.z * fraction,
                     });
                     const tickSize = 5;
-                    ctx.strokeStyle = 'rgba(226,232,240,0.8)';
+                    ctx.strokeStyle = 'rgba(226,232,240,0.85)';
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(tickPoint.x - tickNormal.x * tickSize, tickPoint.y - tickNormal.y * tickSize);
                     ctx.lineTo(tickPoint.x + tickNormal.x * tickSize, tickPoint.y + tickNormal.y * tickSize);
                     ctx.stroke();
 
-                    ctx.fillStyle = 'rgba(226,232,240,0.95)';
+                    ctx.fillStyle = 'rgba(226,232,240,0.9)';
                     ctx.font = '11px "Inter", "SF Pro Display", system-ui, sans-serif';
                     const baseline = tickNormal.y > 0.3 ? 'top' : tickNormal.y < -0.3 ? 'bottom' : 'middle';
                     ctx.textBaseline = baseline;
@@ -858,66 +1050,78 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.textBaseline = axisVector.y > 0.4 ? 'bottom' : axisVector.y < -0.4 ? 'top' : 'middle';
                 ctx.fillText(
                     axis.label,
-                    endPoint.x + axisVector.x * 16,
-                    endPoint.y + axisVector.y * 16
+                    endPoint.x + axisVector.x * 14,
+                    endPoint.y + axisVector.y * 14
                 );
             });
         };
 
         const drawPoints = () => {
-            if (!normalizedPoints.length) return;
-            const projected = normalizedPoints
-                .map((point) => ({ ...projectPoint(point), css: point.css }))
-                .sort((a, b) => a.depth - b.depth);
+            const projected = [];
+            normalizedPoints.forEach((points, mode) => {
+                if (!enabledModes.has(mode)) return;
+                points.forEach((point) => {
+                    projected.push({ ...projectPoint(point), css: point.css, mode });
+                });
+            });
+            projected.sort((a, b) => a.depth - b.depth);
             projected.forEach((point) => {
                 const depthFactor = clamp((point.depth + 0.8) / 1.6, 0, 1);
                 const radius = 2.5 + depthFactor * 3.5;
-                ctx.globalAlpha = 0.7 + depthFactor * 0.3;
+                ctx.globalAlpha = 0.6 + depthFactor * 0.35;
                 ctx.fillStyle = point.css;
+                ctx.strokeStyle = modeStyles[point.mode]?.stroke || 'rgba(255,255,255,0.4)';
+                ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
                 ctx.fill();
+                ctx.stroke();
             });
             ctx.globalAlpha = 1;
         };
 
-        const drawSelected = () => {
-            if (!Number.isFinite(selectedNormalized.x)) return;
-            const pos = projectPoint(selectedNormalized);
-            ctx.fillStyle = selected.css;
-            ctx.strokeStyle = '#0f172a';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(pos.x, pos.y, 7, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
+        const drawSelections = () => {
+            selections.forEach((selection) => {
+                if (!enabledModes.has(selection.mode)) return;
+                const pos = projectPoint(selection.normalized);
+                ctx.fillStyle = selection.css;
+                ctx.strokeStyle = modeStyles[selection.mode]?.stroke || '#fef3c7';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 7, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
 
-            const chromaLabel = formatChroma(selected.c);
-            const label = `L ${selected.l.toFixed(2)}  C ${chromaLabel}  H ${selected.h.toFixed(0)}°`;
-            ctx.font = '12px "Inter", "SF Pro Display", system-ui, sans-serif';
-            ctx.textBaseline = 'middle';
-            ctx.textAlign = 'left';
-            const padding = 6;
-            const metrics = ctx.measureText(label);
-            const bubbleHeight = 24;
-            const halfBubble = bubbleHeight / 2;
-            let boxX = pos.x + 14;
-            let textY = pos.y - 18;
-            boxX = clamp(boxX, 8, width - metrics.width - padding * 2 - 8);
-            textY = clamp(textY, halfBubble + 4, height - halfBubble - 4);
-            ctx.fillStyle = 'rgba(15,23,42,0.85)';
-            ctx.fillRect(boxX - padding, textY - halfBubble, metrics.width + padding * 2, bubbleHeight);
-            ctx.fillStyle = '#f1f5f9';
-            ctx.fillText(label, boxX, textY);
+                const chromaLabel = selection.mode === 'lch'
+                    ? `${Math.round(selection.c * LCH_CHROMA_SCALE)} C`
+                    : selection.c.toFixed(3);
+                const label = `${selection.label}: L ${selection.l.toFixed(2)} · C ${chromaLabel} · H ${selection.h.toFixed(0)}°`;
+                ctx.font = '12px "Inter", "SF Pro Display", system-ui, sans-serif';
+                ctx.textBaseline = 'middle';
+                ctx.textAlign = 'left';
+                const padding = 6;
+                const metrics = ctx.measureText(label);
+                const bubbleHeight = 26;
+                const halfBubble = bubbleHeight / 2;
+                let boxX = pos.x + 14;
+                let textY = pos.y - 18;
+                boxX = clamp(boxX, 8, width - metrics.width - padding * 2 - 8);
+                textY = clamp(textY, halfBubble + 4, height - halfBubble - 4);
+                ctx.fillStyle = 'rgba(15,23,42,0.9)';
+                ctx.fillRect(boxX - padding, textY - halfBubble, metrics.width + padding * 2, bubbleHeight);
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillText(label, boxX, textY);
+            });
         };
 
         const render = () => {
             if (!width || !height) return;
             ctx.clearRect(0, 0, width, height);
             drawCube();
+            drawGridPlanes();
             drawAxes();
             drawPoints();
-            drawSelected();
+            drawSelections();
         };
 
         const onPointerDown = (event) => {
@@ -929,7 +1133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     canvas.setPointerCapture(event.pointerId);
                 } catch (_) {
-                    // ignore
+                    // ignore capture errors
                 }
             }
             canvas.classList.add('is-dragging');
@@ -942,7 +1146,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dy = event.clientY - lastPointer.y;
             state.rotationY += dx * 0.01;
             state.rotationX += dy * 0.01;
-            const pitchLimit = Math.PI / 2 - 0.1;
+            const pitchLimit = Math.PI / 2 - 0.12;
             state.rotationX = clamp(state.rotationX, -pitchLimit, pitchLimit);
             lastPointer = { x: event.clientX, y: event.clientY };
             render();
@@ -964,8 +1168,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const onWheel = (event) => {
             event.preventDefault();
-            const zoomFactor = Math.exp(-event.deltaY * 0.001);
-            state.zoom = clamp(state.zoom * zoomFactor, 0.6, 2.4);
+            const zoomFactor = Math.exp(-event.deltaY * 0.0015);
+            state.zoom = clamp(state.zoom * zoomFactor, 0.6, 2.6);
             render();
         };
 

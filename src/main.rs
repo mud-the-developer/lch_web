@@ -47,17 +47,16 @@ async fn preview(Query(query): Query<PreviewQuery>) -> impl IntoResponse {
 
 fn build_index_template(query: PreviewQuery) -> IndexTemplate {
     let params = ColorParams::from_query(&query);
+    let view_mode = ViewMode::from_param(query.view.as_deref());
     let (fg_color, fg_value) = sanitize_user_color(query.fg.as_deref(), DEFAULT_FG);
     let (bg_color, bg_value) = sanitize_user_color(query.bg.as_deref(), DEFAULT_BG);
-    let outputs = ColorOutputs::new(params);
     let swatch_color = params.parsed_color();
-    let viz = VisualizationContext::new(params);
+    let viz = VisualizationContext::new(params, view_mode);
     let contrast = ContrastChecker::new(swatch_color, &fg_value, &bg_value);
 
     IndexTemplate {
         params,
         presets: &PRESETS,
-        outputs,
         fg_color,
         bg_color,
         contrast,
@@ -67,16 +66,14 @@ fn build_index_template(query: PreviewQuery) -> IndexTemplate {
 
 fn build_preview_template(query: PreviewQuery) -> PreviewTemplate {
     let params = ColorParams::from_query(&query);
+    let view_mode = ViewMode::from_param(query.view.as_deref());
     let (fg_color, fg_value) = sanitize_user_color(query.fg.as_deref(), DEFAULT_FG);
     let (bg_color, bg_value) = sanitize_user_color(query.bg.as_deref(), DEFAULT_BG);
-    let outputs = ColorOutputs::new(params);
     let swatch_color = params.parsed_color();
-    let viz = VisualizationContext::new(params);
+    let viz = VisualizationContext::new(params, view_mode);
     let contrast = ContrastChecker::new(swatch_color, &fg_value, &bg_value);
 
     PreviewTemplate {
-        params,
-        outputs,
         fg_color,
         bg_color,
         contrast,
@@ -90,6 +87,7 @@ struct PreviewQuery {
     c: Option<f64>,
     h: Option<f64>,
     mode: Option<String>,
+    view: Option<String>,
     fg: Option<String>,
     bg: Option<String>,
 }
@@ -133,6 +131,38 @@ impl ColorMode {
 impl Default for ColorMode {
     fn default() -> Self {
         Self::Oklch
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ViewMode {
+    Single,
+    Compare,
+}
+
+impl ViewMode {
+    fn from_param(value: Option<&str>) -> Self {
+        match value {
+            Some(v) if v.eq_ignore_ascii_case("compare") => Self::Compare,
+            _ => Self::Single,
+        }
+    }
+
+    fn param_value(&self) -> &'static str {
+        match self {
+            Self::Single => "single",
+            Self::Compare => "compare",
+        }
+    }
+
+    fn is_compare(&self) -> bool {
+        matches!(self, Self::Compare)
+    }
+}
+
+impl Default for ViewMode {
+    fn default() -> Self {
+        Self::Single
     }
 }
 
@@ -200,35 +230,74 @@ impl Default for ColorParams {
 }
 
 #[derive(Clone)]
-struct ColorOutputs {
-    active_css: String,
-    oklch_css: String,
-    lch_css: String,
+struct ModeOutputs {
+    css: String,
     hex: Option<String>,
     rgb: Option<String>,
     hsl: Option<String>,
 }
 
-impl ColorOutputs {
+impl ModeOutputs {
     fn new(params: ColorParams) -> Self {
-        let oklch_css = params.oklch_css();
-        let lch_css = params.lch_css();
-        let active_css = match params.mode {
-            ColorMode::Oklch => oklch_css.clone(),
-            ColorMode::Lch => lch_css.clone(),
-        };
-        let parsed = parse(&active_css).ok();
+        let css = params.css_color();
+        let parsed = parse(&css).ok();
         let hex = parsed.as_ref().map(color_to_hex);
         let rgb = parsed.as_ref().map(|color| rgb_string(color));
         let hsl = parsed.as_ref().map(|color| hsl_string(color));
 
+        Self { css, hex, rgb, hsl }
+    }
+}
+
+#[derive(Clone)]
+struct ModeSlices {
+    lc_slice: SliceData,
+    ch_slice: SliceData,
+}
+
+impl ModeSlices {
+    fn new(params: ColorParams) -> Self {
+        let lc_slice = build_lc_slice(params);
+        let ch_slice = build_ch_slice(params);
+        Self { lc_slice, ch_slice }
+    }
+}
+
+#[derive(Clone)]
+struct ModePanelData {
+    mode: ColorMode,
+    params: ColorParams,
+    outputs: ModeOutputs,
+    slices: ModeSlices,
+}
+
+impl ModePanelData {
+    fn new(base: &ColorParams, mode: ColorMode) -> Self {
+        let mut params = *base;
+        params.mode = mode;
         Self {
-            active_css,
-            oklch_css,
-            lch_css,
-            hex,
-            rgb,
-            hsl,
+            mode,
+            params,
+            outputs: ModeOutputs::new(params),
+            slices: ModeSlices::new(params),
+        }
+    }
+
+    fn css_dom_id(&self) -> String {
+        format!("css-{}", self.mode.param_value())
+    }
+
+    fn chroma_note(&self) -> &'static str {
+        match self.mode {
+            ColorMode::Oklch => "(OK units)",
+            ColorMode::Lch => "(≈CIE)",
+        }
+    }
+
+    fn chroma_value_display(&self) -> String {
+        match self.mode {
+            ColorMode::Oklch => self.params.c_display(),
+            ColorMode::Lch => format!("{:.0}", self.params.c * LCH_C_SCALE),
         }
     }
 }
@@ -285,21 +354,39 @@ impl ContrastSummary {
 
 #[derive(Clone)]
 struct VisualizationContext {
-    lc_slice: SliceData,
-    ch_slice: SliceData,
-    points_json: String,
+    view_mode: ViewMode,
+    active_mode: ColorMode,
+    panels: Vec<ModePanelData>,
+    plot_json: String,
 }
 
 impl VisualizationContext {
-    fn new(params: ColorParams) -> Self {
-        let lc_slice = build_lc_slice(params);
-        let ch_slice = build_ch_slice(params);
-        let points_json = build_point_cloud(params.mode);
+    fn new(params: ColorParams, view_mode: ViewMode) -> Self {
+        let panels = vec![
+            ModePanelData::new(&params, ColorMode::Oklch),
+            ModePanelData::new(&params, ColorMode::Lch),
+        ];
+        let plot_json = build_plot_payload(&panels);
         Self {
-            lc_slice,
-            ch_slice,
-            points_json,
+            view_mode,
+            active_mode: params.mode,
+            panels,
+            plot_json,
         }
+    }
+
+    fn active_panel(&self) -> &ModePanelData {
+        self.panel_for(self.active_mode)
+            .or_else(|| self.panels.first())
+            .expect("at least one color model should be present")
+    }
+
+    fn panel_for(&self, mode: ColorMode) -> Option<&ModePanelData> {
+        self.panels.iter().find(|panel| panel.mode == mode)
+    }
+
+    fn active_outputs(&self) -> &ModeOutputs {
+        &self.active_panel().outputs
     }
 }
 
@@ -363,6 +450,29 @@ struct VizPoint {
     css: String,
 }
 
+#[derive(Serialize)]
+struct PlotDataset {
+    mode: &'static str,
+    label: &'static str,
+    points: Vec<VizPoint>,
+}
+
+#[derive(Serialize)]
+struct SelectedPoint {
+    mode: &'static str,
+    label: &'static str,
+    l: f64,
+    c: f64,
+    h: f64,
+    css: String,
+}
+
+#[derive(Serialize)]
+struct PlotPayload {
+    datasets: Vec<PlotDataset>,
+    selections: Vec<SelectedPoint>,
+}
+
 #[derive(Clone, Copy)]
 struct Preset {
     name: &'static str,
@@ -403,7 +513,6 @@ const PRESETS: [Preset; 4] = [
 struct IndexTemplate {
     params: ColorParams,
     presets: &'static [Preset],
-    outputs: ColorOutputs,
     fg_color: String,
     bg_color: String,
     contrast: ContrastChecker,
@@ -413,8 +522,6 @@ struct IndexTemplate {
 #[derive(Template)]
 #[template(path = "preview.html")]
 struct PreviewTemplate {
-    params: ColorParams,
-    outputs: ColorOutputs,
     fg_color: String,
     bg_color: String,
     contrast: ContrastChecker,
@@ -565,7 +672,37 @@ fn build_ch_slice(params: ColorParams) -> SliceData {
     )
 }
 
-fn build_point_cloud(mode: ColorMode) -> String {
+fn build_plot_payload(panels: &[ModePanelData]) -> String {
+    let datasets = [ColorMode::Oklch, ColorMode::Lch]
+        .into_iter()
+        .map(|mode| PlotDataset {
+            mode: mode.param_value(),
+            label: mode.label(),
+            points: build_point_cloud(mode),
+        })
+        .collect::<Vec<_>>();
+
+    let selections = [ColorMode::Oklch, ColorMode::Lch]
+        .into_iter()
+        .filter_map(|mode| panels.iter().find(|panel| panel.mode == mode))
+        .map(|panel| SelectedPoint {
+            mode: panel.mode.param_value(),
+            label: panel.mode.label(),
+            l: panel.params.l,
+            c: panel.params.c,
+            h: panel.params.h,
+            css: panel.outputs.css.clone(),
+        })
+        .collect::<Vec<_>>();
+
+    serde_json::to_string(&PlotPayload {
+        datasets,
+        selections,
+    })
+    .unwrap_or_else(|_| "{}".to_string())
+}
+
+fn build_point_cloud(mode: ColorMode) -> Vec<VizPoint> {
     let l_values = [0.12, 0.25, 0.4, 0.55, 0.7, 0.85];
     let c_values = [0.02, 0.1, 0.18, 0.26, 0.34];
     let mut points = Vec::new();
@@ -587,7 +724,7 @@ fn build_point_cloud(mode: ColorMode) -> String {
             }
         }
     }
-    serde_json::to_string(&points).unwrap_or_else(|_| "[]".to_string())
+    points
 }
 
 fn sample_range(start: f64, end: f64, steps: usize) -> Vec<f64> {
