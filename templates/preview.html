@@ -181,25 +181,3 @@
     {% endfor %}
 </section>
 
-<section class="space-panel" data-view-mode="{{ viz.view_mode.param_value() }}">
-    <header>
-        <div>
-            <h3>Secondary 3D sample cloud</h3>
-            <p>Use after reading the maps above—drag to rotate, scroll to zoom, and toggle sampled OKLCH vs classic LCH point clouds.</p>
-        </div>
-        <div class="space-legend">
-            {% for panel in viz.panels %}
-            <label class="legend-chip" data-panel="{{ panel.mode.param_value() }}">
-                <input type="checkbox" data-surface-toggle value="{{ panel.mode.param_value() }}" {% if viz.view_mode.is_compare() || panel.mode.param_value() == viz.active_mode.param_value() %}checked{% endif %}>
-                <span class="dot" style="background: {% if panel.mode.param_value() == "oklch" %}var(--ok-accent){% else %}var(--lch-accent){% endif %};"></span>
-                <span>{{ panel.mode.label() }}</span>
-            </label>
-            {% endfor %}
-        </div>
-    </header>
-    <div class="space-surface">
-        <canvas id="space-canvas" width="640" height="320" aria-label="Interactive 3D plot"></canvas>
-        <script id="space-data" type="application/json">{{ viz.plot_json|safe }}</script>
-    </div>
-    <div class="space-badges" id="space-badges"></div>
-</section>
